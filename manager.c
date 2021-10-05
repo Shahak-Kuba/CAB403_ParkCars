@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include<string.h>
 #include <time.h>
 #include <pthread.h>
 #include <sys/mman.h>
@@ -35,9 +36,8 @@ int main()
     shm_CP_t* shm;
 
     key = KEY;
-
     shared_mem_init_open(shm, key);
-
+    
     // loop that runs the simulation
     while(sim)
     {
@@ -57,4 +57,27 @@ int shared_mem_init_open(shm_CP_t* shm, const char* shm_key)
             return(EXIT_FAILURE);
         }
     return(EXIT_SUCCESS);
+}
+
+
+
+bool LPR_detect(char *LPR)
+{
+    int line_num = 1;
+	char temp[512]; // file buffer
+    FILE *fptr = fopen("plates.txt", "r"); 
+    printf("%s\n",LPR);
+    if(fptr == NULL)
+    {
+        printf("Could not open plates.txt file. Please make sure it's in the same directory");
+    }
+
+    while(fgets(temp, 512, fptr) != NULL) {
+		if((strstr(temp, LPR)) != NULL) {
+			return true; // licence found, return true
+		}
+		line_num++;
+	}
+
+    return false;
 }

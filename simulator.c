@@ -17,7 +17,7 @@ void clear_memory( shm_CP_t* shm );
 
 /* car simulation functions */
 void car_sim(shm_CP_t* shm); // car simulation
-void LPR_generator(); // function that will generate random LPR
+char * LPR_generator(); // function that will generate random LPR
 
 /* boom arm simulation functions */
 
@@ -27,6 +27,8 @@ void LPR_generator(); // function that will generate random LPR
 
 int main()
 {
+    LPR_generator();
+    LPR_generator();
     return(EXIT_SUCCESS);
 }
 
@@ -70,6 +72,25 @@ void clear_memory( shm_CP_t* shm ) {
 }
 
 /* ----------------------------------------------car simulation functions----------------------------------------------------*/
+
+char * LPR_generator()
+{
+    // Allocate space for LPR
+    char * LPR = malloc(sizeof(char) * 6);
+
+    for(int i = 0; i < 6; i++)
+    {
+        if(i < 3){ // first 3 are numbers
+            LPR[i] = '0' + (random() % 10);
+        }
+        else // last 3 are letters
+        {
+            LPR[i] = 'A' + random() % 26;
+        }
+    }
+    return LPR;
+}
+
 
 /* ----------------------------------------------Boom arm simulation functions----------------------------------------------------*/
 
