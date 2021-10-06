@@ -77,8 +77,9 @@ typedef struct Shm_Carpark {
 typedef struct Car
 {
     int thread_no;
-    char LPR[6]; // random LPR number
-    time_t time_stayed; // time data type to keep track of 
+    char LPR[7]; // random LPR number
+    time_t time_in; // entered time
+    time_t time_out; // exited time
     struct car_data *next;
 
 } Car_t;

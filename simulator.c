@@ -27,8 +27,14 @@ char * LPR_generator(); // function that will generate random LPR
 
 int main()
 {
-    LPR_generator();
-    LPR_generator();
+    // Allocate space for LPR
+    char LPR[7];
+    LPR[6] = 0; // termination char
+    for(int i = 0; i < 10; i++)
+    {
+        LPR_generator(LPR);
+        printf("%s\n",LPR); 
+    }
     return(EXIT_SUCCESS);
 }
 
@@ -65,18 +71,16 @@ int shared_mem_init(shm_CP_t* shm, const char* shm_key)
 // clearing memory
 void clear_memory( shm_CP_t* shm ) {
     // Remove the shared memory object.
-    munmap( shm->shm_car, sizeof(CP_t));
-    shm_unlink(shm->shm_car);
+    munmap(shm->shm_car, sizeof(CP_t));
+    shm_unlink(KEY);
     shm->fd = -1;
     shm->shm_car = NULL;
 }
 
 /* ----------------------------------------------car simulation functions----------------------------------------------------*/
 
-char * LPR_generator()
+char * LPR_generator(char * LPR)
 {
-    // Allocate space for LPR
-    char * LPR = malloc(sizeof(char) * 6);
 
     for(int i = 0; i < 6; i++)
     {

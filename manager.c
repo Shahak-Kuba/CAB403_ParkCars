@@ -33,10 +33,10 @@ void boom_control();// function to control boomgate status
 int main()
 {
     const char* key;
-    shm_CP_t* shm;
+    shm_CP_t shm;
 
     key = KEY;
-    shared_mem_init_open(shm, key);
+    shared_mem_init_open(&shm, key);
     
     // loop that runs the simulation
     while(sim)
