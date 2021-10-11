@@ -27,6 +27,7 @@ char * LPR_generator(); // function that will generate random LPR
 
 int main()
 {
+    
     // Allocate space for LPR
     char LPR[7];
     LPR[6] = 0; // termination char

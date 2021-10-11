@@ -9,6 +9,11 @@
 
 #define SHMSZ 2120 // defining size for shared memory
 #define KEY "CPark" // defining key for shared memory
+#define NUM_LEVELS 5
+#define NUM_ENTERS 5
+#define NUM_EXITS 5
+#define LPRSZ 6
+#define LEVEL_CAPACITY 20
 
 
 // Struct for Entrance
@@ -16,7 +21,7 @@ typedef struct Enter
 {
     pthread_mutex_t LPR_mutex;
     pthread_cond_t LPR_cond;
-    char LPR_reading[6];
+    char LPR_reading[LPRSZ];
     pthread_mutex_t BOOM_mutex;
     pthread_cond_t BOOM_cond;
     char BOOM_status;
@@ -31,7 +36,7 @@ typedef struct Exit
 {
     pthread_mutex_t LPR_mutex;
     pthread_cond_t LPR_cond;
-    char LPR_reading[6];
+    char LPR_reading[LPRSZ];
     pthread_mutex_t BOOM_mutex;
     pthread_cond_t BOOM_cond;
     char BOOM_status;
@@ -43,7 +48,7 @@ typedef struct Level
 {
     pthread_mutex_t LPR_mutex;
     pthread_cond_t LPR_cond;
-    char LPR_reading[6];
+    char LPR_reading[LPRSZ];
     char temp_sensor[2];
     char fire_alarm;
 } Level_t;
@@ -53,11 +58,11 @@ typedef struct Level
 typedef struct CarPark
 {
     // Creating the entrances
-    Enter_t Enter[5];
+    Enter_t Enter[NUM_ENTERS];
     // Creating the Exits
-    Exit_t Exit[5];
+    Exit_t Exit[NUM_EXITS];
     // Creating levels
-    Level_t Level[5];
+    Level_t Level[NUM_LEVELS];
 } CP_t;
 
 
@@ -77,7 +82,7 @@ typedef struct Shm_Carpark {
 typedef struct Car
 {
     int thread_no;
-    char LPR[7]; // random LPR number
+    char LPR[LPRSZ + 1]; // random LPR number with a space for 0 char
     time_t time_in; // entered time
     time_t time_out; // exited time
     struct car_data *next;
