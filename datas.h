@@ -8,7 +8,7 @@
 #include <fcntl.h>
 
 #define SHMSZ 2120 // defining size for shared memory
-#define KEY "CPark" // defining key for shared memory
+#define KEY "PARKING" // defining key for shared memory
 #define NUM_LEVELS 5
 #define NUM_ENTERS 5
 #define NUM_EXITS 5

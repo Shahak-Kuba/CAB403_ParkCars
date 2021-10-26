@@ -17,14 +17,15 @@ bool sim = true;
 // Predefining functions
 
 // hash table allocation
-bool htab_init(htab_t *h, size_t n);
-size_t htab_index(htab_t *h, char *key);
+bool htab_init(htab_t *h, size_t n); // function to initialise hash table
+size_t htab_index(htab_t *h, char *key); // function to duns index of hash table
 size_t djb_hash(char *s);
 void item_print(item_t *i);
 bool htab_add(htab_t *h, char *key, int value);
 item_t *htab_bucket(htab_t *h, char *key);
 int LPR_to_htab(htab_t* h);
 item_t *htab_find(htab_t *h, char *key);
+void htab_destroy(htab_t *h); // function to destroy hash table at the end
 
 
 /* SHARED MEMORY functions */
@@ -55,8 +56,7 @@ int shared_mem_init_open(shm_CP_t* shm, const char* shm_key)
     return(EXIT_SUCCESS);
 }
 
-
-
+// functuon to detect if the random license plate is on the allocated .txt file
 bool LPR_detect(htab_t *h, char *LPR)
 {
     if(htab_find(h, LPR) == NULL)
@@ -66,6 +66,7 @@ bool LPR_detect(htab_t *h, char *LPR)
     return true;
 }
 
+//
 
 // -----------------------------------------------------Hash Table Function--------------------------------------------------------------------------
 
@@ -139,6 +140,26 @@ item_t *htab_find(htab_t *h, char *key)
     return NULL;
 }
 
+void htab_destroy(htab_t *h)
+{
+    // free linked lists
+    for (size_t i = 0; i < h->size; ++i)
+    {
+        item_t *bucket = h->buckets[i];
+        while (bucket != NULL)
+        {
+            item_t *next = bucket->next;
+            free(bucket);
+            bucket = next;
+        }
+    }
+
+    // free buckets array
+    free(h->buckets);
+    h->buckets = NULL;
+    h->size = 0;
+}
+
 // reading from file directly into a hash table
 int LPR_to_htab(htab_t *h)
 {
@@ -176,10 +197,9 @@ int main()
     shm_CP_t PARKING;
     key = KEY;
     shared_mem_init_open(&PARKING, key);
-    
 
     // initialising has table
-    size_t buckets = 5;
+    size_t buckets = 10;
     htab_t h;
     if (!htab_init(&h, buckets))
     {
@@ -187,13 +207,20 @@ int main()
         return EXIT_FAILURE;
     }
 
-    LPR_to_htab(&h);
+    LPR_to_htab(&h); // allocating the allowed number plated to hash table
+
+    // setting up threads
+    pthread_t enter1;
+    Car_t data1;
+
+    pthread_create(&enter1, NULL, (void *(*)(void *))LPR_detect, (void *)&data1);
+
 
     
     // loop that runs the simulation
     while(sim)
-    {
-        htab_print(&h);
+    {   
+        // pull in car 
         sim = false;
     }
     return EXIT_SUCCESS;
