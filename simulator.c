@@ -12,7 +12,7 @@
 int car_list_chance = 50;
 
 // predefining shared memory functions
-int shared_mem_init(shm_CP_t* shm, const char* shm_key);
+int shared_mem_init(shm_CP_t* shm, char* shm_key);
 void clear_memory( shm_CP_t* shm ); 
 
 // simulation functions
@@ -29,7 +29,9 @@ void LPR_generator(); // function that will generate random LPR
 
 int main()
 {
-    
+    // initialising shared memory
+    shm_CP_t shm;
+    shared_mem_init(&shm, KEY);
     // Allocate space for LPR
     char LPR[7];
     LPR[6] = 0; // termination char
@@ -38,28 +40,31 @@ int main()
         LPR_generator(LPR);
         printf("%s\n",LPR); 
     }
+    while(1);
     return(EXIT_SUCCESS);
 }
 
 /* ----------------------------------------------shared memory functions----------------------------------------------------*/
 
-int shared_mem_init(shm_CP_t* shm, const char* shm_key)
+int shared_mem_init(shm_CP_t* shm, char* shm_key)
 {
     shm_unlink(shm_key);// making sure key is not linked to shm
     shm->key = shm_key;
 
     //Opening or Creating and opening data
-    if((shm->fd = shm_open(shm->key, O_CREAT | O_RDWR, 0666) < 0))
+    if((shm->fd = shm_open(shm->key, O_CREAT | O_RDWR, 0666)) < 0)
     {
         perror("shm_open");
         return(EXIT_FAILURE);
     }
+
     // truncating memory to allocated size
-    if(ftruncate(shm->fd,SHMSZ)<0)
+    if(ftruncate(shm->fd,SHMSZ) < 0)
     {
         perror("ftruncate");
         return(EXIT_FAILURE);
     }
+
     // mapping memory
     if((shm->shm_car = mmap(0, SHMSZ, PROT_WRITE, MAP_SHARED, shm->fd,0)) == (CP_t *) - 1)
     {
