@@ -14,6 +14,7 @@
 #define NUM_EXITS 5
 #define LPRSZ 6
 #define LEVEL_CAPACITY 20
+#define LPFILE "plates.txt"
 
 
 // Struct for Entrance
@@ -85,9 +86,29 @@ typedef struct Car
     char LPR[LPRSZ + 1]; // random LPR number with a space for 0 char
     time_t time_in; // entered time
     time_t time_out; // exited time
-    struct car_data *next;
+    struct Car *next;
 
 } Car_t;
 
 
+// ---------------------------------------------------------Hash table-------------------------------------------------------
+
+// An item inserted into a hash table.
+// As hash collisions can occur, multiple items can exist in one bucket.
+// Therefore, each bucket is a linked list of items that hashes to that bucket.
+typedef struct item item_t;
+struct item
+{
+    char *key;
+    int value;
+    item_t *next;
+};
+
+// A hash table mapping a string to an integer.
+typedef struct htab htab_t;
+struct htab
+{
+    item_t **buckets;
+    size_t size;
+};
 
