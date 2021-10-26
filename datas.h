@@ -75,7 +75,7 @@ typedef struct Shm_Carpark {
     /// The file descriptor used to manage the shared memory object.
     int fd;
     /// Pointer to address of the shared data block. 
-    CP_t* shm_car;
+    CP_t* shm_ptr;
 } shm_CP_t;
 
 // Car data type
