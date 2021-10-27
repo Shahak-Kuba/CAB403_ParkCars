@@ -9,6 +9,8 @@
 #include <stdbool.h>
 #include "datas.h"
 
+int car_list_chance = 50;
+
 // predefining shared memory functions
 int shared_mem_init(shm_CP_t* shm, char* shm_key);
 void clear_memory( shm_CP_t* shm ); 
@@ -17,7 +19,7 @@ void clear_memory( shm_CP_t* shm );
 
 /* car simulation functions */
 void car_sim(shm_CP_t* shm); // car simulation
-char * LPR_generator(); // function that will generate random LPR
+void LPR_generator(); // function that will generate random LPR
 
 /* boom arm simulation functions */
 
@@ -85,19 +87,44 @@ void clear_memory( shm_CP_t* shm ) {
 
 /* ----------------------------------------------car simulation functions----------------------------------------------------*/
 
-char * LPR_generator(char * LPR)
+void LPR_generator(char LPR[7])
 {
-    for(int i = 0; i < 6; i++)
-    {
-        if(i < 3){ // first 3 are numbers
-            LPR[i] = '0' + (random() % 10);
+    while (true) {
+        if (rand() % 100 <= car_list_chance) {
+            //printf("Use Car Plate: ");
+            //Use car from plates.txt
+            //Measure Number of plates in file.
+            FILE* file_ptr = fopen("plates.txt","r");
+            fseek(file_ptr,0,SEEK_END);
+            int file_plate_count = ftell(file_ptr) / 7; //assumes all plates are 6 chars long
+            //Take Random Plate from file
+            fseek(file_ptr,(rand() % file_plate_count)*7,SEEK_SET);
+            fgets(LPR,7,file_ptr);
+            //printf("%s.\n",LPR);
+            fclose(file_ptr);
+
+        } else {
+            //Generate random car plate
+            //printf("Generate New Plate: ");
+            for(int i = 0; i < 6; i++) {
+                if(i < 3) { // first 3 are numbers
+                    LPR[i] = '0' + (random() % 10);
+                } else { // last 3 are letters
+                    LPR[i] = 'A' + random() % 26;
+                }
+            }
+            //printf("%s.\n",LPR);
         }
-        else // last 3 are letters
-        {
-            LPR[i] = 'A' + random() % 26;
+
+        break;
+
+        //Break and finish if plate doesnt exist
+        /*
+        if (! plate exists) {
+            break;
         }
-    }
-    return LPR;
+        */
+    }    
 }
 
 
