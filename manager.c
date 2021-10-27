@@ -62,7 +62,7 @@ bool htab_init(htab_t *h, size_t n)
 size_t djb_hash(char *s)
 {
     size_t hash = 5381;
-    int c;
+    int c = 0;
     while ((c = *s++) != '\0')
     {
         // hash = hash * 33 + c
@@ -89,8 +89,10 @@ bool htab_add(htab_t *h, char key[7])
     }
     // copy number plate from key into number_plate
     memcpy(newhead->number_plate, key, 6);
+    newhead->number_plate[6] = 0;
     // finding index of next hash 
     size_t bucket = htab_index(h,newhead->number_plate);
+    newhead->next = h->buckets[bucket];
     h->buckets[bucket] = newhead;
     return true;
     
@@ -150,7 +152,7 @@ int LPR_to_htab(htab_t *h)
     // scanning for number plate
     while((fscanf(file, "%s", source)) != EOF)
     {
-        printf("%s\n", source);
+        //printf("%s\n", source);
         if ((htab_add(h, source)) == false)
         {
             printf("error adding number plate to hash table");
@@ -160,6 +162,35 @@ int LPR_to_htab(htab_t *h)
     return 0;
 }
 
+void item_print(NP_t *i)
+{
+    printf("key=%s", i->number_plate);
+}
+
+void htab_print(htab_t *h)
+{
+    printf("hash table with %ld buckets\n", h->size);
+    for (size_t i = 0; i < h->size; ++i)
+    {
+        printf("bucket %ld: ", i);
+        if (h->buckets[i] == NULL)
+        {
+            printf("empty\n");
+        }
+        else
+        {
+            for (NP_t *j = h->buckets[i]; j != NULL; j = j->next)
+            {
+                item_print(j);
+                if (j->next != NULL)
+                {
+                    printf(" -> ");
+                }
+            }
+            printf("\n");
+        }
+    }
+}
 
 // -----------------------------------------------------------------------------------------------------------------MAIN--------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -179,6 +210,10 @@ int main()
         printf("failed to initialise hash table\n");
         return EXIT_FAILURE;
     }
+
+    LPR_to_htab(&h);
+    htab_print(&h);
+
 
     return EXIT_SUCCESS;
 }

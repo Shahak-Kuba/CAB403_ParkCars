@@ -34,7 +34,6 @@ int main()
     // initialising shared memory
     shm_CP_t shm;
     shared_mem_init(&shm, KEY);
-    shm_CP_t* shmPtr = &shm;
 
     // intialising threads
 
@@ -42,9 +41,10 @@ int main()
     // Allocate space for LPR
     char LPR[7];
     LPR[6] = 0; // termination char
-    for(int i = 0; i < 100; i++)
+    for(int i = 0; i < 500; i++)
     {
-        printf("%s\n",LPR_generator());
+        LPR_generator(LPR);
+        printf("%s\n",LPR);
     }
     //main loop
     for (;;) {
