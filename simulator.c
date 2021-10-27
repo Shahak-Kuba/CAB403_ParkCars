@@ -34,13 +34,17 @@ int main()
     // initialising shared memory
     shm_CP_t shm;
     shared_mem_init(&shm, KEY);
+    shm_CP_t* shmPtr = &shm;
+
+    // intialising threads
+
+
     // Allocate space for LPR
     char LPR[7];
     LPR[6] = 0; // termination char
-    for(int i = 0; i < 10; i++)
+    for(int i = 0; i < 100; i++)
     {
-        LPR_generator(LPR);
-        printf("%s\n",LPR); 
+        printf("%s\n",LPR_generator());
     }
     //main loop
     for (;;) {
@@ -78,7 +82,7 @@ int shared_mem_init(shm_CP_t* shm, char* shm_key)
     }
 
     // mapping memory
-    if((shm->shm_car = mmap(0, SHMSZ, PROT_WRITE, MAP_SHARED, shm->fd,0)) == (CP_t *) - 1)
+    if((shm->shm_ptr = mmap(0, SHMSZ, PROT_WRITE, MAP_SHARED, shm->fd,0)) == (CP_t *) - 1)
     {
         perror("mmap");
         return(EXIT_FAILURE);
@@ -91,10 +95,10 @@ int shared_mem_init(shm_CP_t* shm, char* shm_key)
 // clearing memory
 void clear_memory( shm_CP_t* shm ) {
     // Remove the shared memory object.
-    munmap(shm->shm_car, sizeof(CP_t));
+    munmap(shm->shm_ptr, sizeof(CP_t));
     shm_unlink(KEY);
     shm->fd = -1;
-    shm->shm_car = NULL;
+    shm->shm_ptr = NULL;
 }
 
 /* ----------------------------------------------car simulation functions----------------------------------------------------*/
