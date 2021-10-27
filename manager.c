@@ -1,13 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include<stdbool.h>
+#include<string.h>
 #include <time.h>
 #include <pthread.h>
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include<string.h>
+#include <stdbool.h>
 #include "datas.h"
 
 
@@ -17,13 +17,26 @@ bool sim = true;
 // Predefining functions
 
 // hash table allocation
+bool htab_init(htab_t *h, size_t n); // function to initialise hash table
+size_t htab_index(htab_t *h, char *key); // function to duns index of hash table
+size_t djb_hash(char *s);
+void item_print(item_t *i);
+bool htab_add(htab_t *h, char *key, int value);
+item_t *htab_bucket(htab_t *h, char *key);
+int LPR_to_htab(htab_t* h);
+item_t *htab_find(htab_t *h, char *key);
+void htab_destroy(htab_t *h); // function to destroy hash table at the end
 
 
 /* SHARED MEMORY functions */
 int shared_mem_init_open(shm_CP_t* shm, const char* shm_key);
 
 /* ENTRANCE functions */
-
+void enter_carpark();// this will be a function that allows a car to enter the carpark
+bool LPR_detect(htab_t *h, char LPR[6]); // function that will check if the LPR is on the list
+void detect(char LPR[6]);// this function will verify that the car can enter the car park
+void navigate();// this function will navigate the car to the appropriate floor based on how full the carpark is
+void boom_control();// function to control boomgate status
 
 /* EXIT functions */
 
@@ -44,6 +57,14 @@ int shared_mem_init_open(shm_CP_t* shm, const char* shm_key)
 }
 
 // functuon to detect if the random license plate is on the allocated .txt file
+bool LPR_detect(htab_t *h, char *LPR)
+{
+    if(htab_find(h, LPR) == NULL)
+    {
+        return false;
+    }
+    return true;
+}
 
 //
 
@@ -53,7 +74,7 @@ int shared_mem_init_open(shm_CP_t* shm, const char* shm_key)
 bool htab_init(htab_t *h, size_t n)
 {
     h->size = n;
-    h->buckets = (NP_t **)calloc(n, sizeof(NP_t *));
+    h->buckets = (item_t **)calloc(n, sizeof(item_t *));
     return h->buckets != 0;
 }
 
@@ -71,43 +92,47 @@ size_t djb_hash(char *s)
     return hash;
 }
 
+// Add a key with value to the hash table.
+// pre: htab_find(h, key) == NULL
+// post: (return == false AND allocation of new item failed)
+//       OR (htab_find(h, key) != NULL)
+bool htab_add(htab_t *h, char *key, int value)
+{
+    // allocate new item
+    item_t *newhead = (item_t *)malloc(sizeof(item_t));
+    if (newhead == NULL)
+    {
+        return false;
+    }
+    newhead->key = key;
+    newhead->value = value;
+
+    // hash key and place item in appropriate bucket
+    size_t bucket = htab_index(h, key);
+    newhead->next = h->buckets[bucket];
+    h->buckets[bucket] = newhead;
+    //printf("bucket %ld has key is: %s with a value of %d\n", bucket, h->buckets[bucket]->key, h->buckets[bucket]->value);
+    return true;
+}
+
 // Calculate the offset for the bucket for key in hash table.
 size_t htab_index(htab_t *h, char *key)
 {
     return djb_hash(key) % h->size;
 }
 
-// adding function for hash table
-bool htab_add(htab_t *h, char key[7])
-{
-    // allocating space for a new number plate
-    NP_t *newhead = (NP_t *)malloc(sizeof(NP_t));
-    // check if new head was created
-    if(newhead == NULL)
-    {
-        return false;
-    }
-    // copy number plate from key into number_plate
-    memcpy(newhead->number_plate, key, 6);
-    // finding index of next hash 
-    size_t bucket = htab_index(h,newhead->number_plate);
-    h->buckets[bucket] = newhead;
-    return true;
-    
-}
-
 // Find pointer to head of list for key in hash table.
-NP_t *htab_bucket(htab_t *h, char *key)
+item_t *htab_bucket(htab_t *h, char *key)
 {
     return h->buckets[htab_index(h, key)];
 }
 
 // item find
-NP_t *htab_find(htab_t *h, char *key)
+item_t *htab_find(htab_t *h, char *key)
 {
-    for (NP_t *i = htab_bucket(h, key); i != NULL; i = i->next)
+    for (item_t *i = htab_bucket(h, key); i != NULL; i = i->next)
     {
-        if (strcmp(i->number_plate, key) == 0)
+        if (strcmp(i->key, key) == 0)
         { // found the key
             return i;
         }
@@ -120,10 +145,10 @@ void htab_destroy(htab_t *h)
     // free linked lists
     for (size_t i = 0; i < h->size; ++i)
     {
-        NP_t *bucket = h->buckets[i];
+        item_t *bucket = h->buckets[i];
         while (bucket != NULL)
         {
-            NP_t *next = bucket->next;
+            item_t *next = bucket->next;
             free(bucket);
             bucket = next;
         }
@@ -140,7 +165,8 @@ int LPR_to_htab(htab_t *h)
 {
     // initialising hast table
     // Reading the file
-    char source[7]; // reading a number plate of 7 bytes long
+    // initialising buffer of 100000 bytes (in case of a long plates.txt)
+    char source[6]; // reading a number plate of 8 bytes long
     FILE *file = fopen(LPFILE, "r"); // opening in file mode
     // checking file exists
     if (file == NULL)
@@ -150,11 +176,12 @@ int LPR_to_htab(htab_t *h)
     // scanning for number plate
     while((fscanf(file, "%s", source)) != EOF)
     {
-        printf("%s\n", source);
-        if ((htab_add(h, source)) == false)
+        //printf("%s\n", source);
+        if ((htab_add(h, source, 0)) == false)
         {
             printf("error adding number plate to hash table");
         }
+        //size_t index = htab_index(h,source);
     }
     printf("successfuly allocated number plates to hash table\n");
     return 0;
@@ -167,9 +194,9 @@ int main()
 {
     // opening shared memory
     const char* key;
-    shm_CP_t CP;
+    shm_CP_t PARKING;
     key = KEY;
-    shared_mem_init_open(&CP, key);
+    shared_mem_init_open(&PARKING, key);
 
     // initialising has table
     size_t buckets = 10;
@@ -180,5 +207,21 @@ int main()
         return EXIT_FAILURE;
     }
 
+    LPR_to_htab(&h); // allocating the allowed number plated to hash table
+
+    // setting up threads
+    pthread_t enter1;
+    Car_t data1;
+
+    pthread_create(&enter1, NULL, (void *(*)(void *))LPR_detect, (void *)&data1);
+
+
+    
+    // loop that runs the simulation
+    while(sim)
+    {   
+        // pull in car 
+        sim = false;
+    }
     return EXIT_SUCCESS;
 }

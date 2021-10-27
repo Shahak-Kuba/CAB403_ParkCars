@@ -50,7 +50,7 @@ typedef struct Level
     pthread_mutex_t LPR_mutex;
     pthread_cond_t LPR_cond;
     char LPR_reading[LPRSZ];
-    int16_t temp_sensor;
+    char temp_sensor[2];
     char fire_alarm;
 } Level_t;
 
@@ -83,26 +83,32 @@ typedef struct Shm_Carpark {
 typedef struct Car
 {
     int thread_no;
-    int level;
-    char LPR[6]; // random LPR number with a space for 0 char
+    char LPR[LPRSZ + 1]; // random LPR number with a space for 0 char
     time_t time_in; // entered time
     time_t time_out; // exited time
     struct Car *next;
+
 } Car_t;
 
-// ---------------------------------------------------------Hash table-------------------------------------------------------
-typedef struct NP NP_t;
-struct NP
-{
-    char number_plate[7];
-    NP_t *next;
-} ;
 
+// ---------------------------------------------------------Hash table-------------------------------------------------------
+
+// An item inserted into a hash table.
+// As hash collisions can occur, multiple items can exist in one bucket.
+// Therefore, each bucket is a linked list of items that hashes to that bucket.
+typedef struct item item_t;
+struct item
+{
+    char *key;
+    int value;
+    item_t *next;
+};
+
+// A hash table mapping a string to an integer.
 typedef struct htab htab_t;
 struct htab
 {
-  NP_t **buckets;
-  size_t size;  
+    item_t **buckets;
+    size_t size;
 };
-
 
