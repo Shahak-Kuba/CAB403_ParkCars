@@ -22,13 +22,15 @@ void car_sim(shm_CP_t* shm); // car simulation
 void LPR_generator(); // function that will generate random LPR
 
 /* boom arm simulation functions */
-
+void toggleGate();
 
 /* fire sensor simulation functions */
-
+int fireState = 0; //0 normal operation, 1 for creep & 2 for spike
 
 int main()
 {
+    printf("Enter F to trigger Creeping Fire Alarm Event\n");
+    printf("Enter G to trigger Spike Fire Alarm Event\n");
     // initialising shared memory
     shm_CP_t shm;
     shared_mem_init(&shm, KEY);
@@ -40,7 +42,17 @@ int main()
         LPR_generator(LPR);
         printf("%s\n",LPR); 
     }
-    while(1);
+    //main loop
+    for (;;) {
+        if (fgetc(stdin) == 'f') {
+            printf("Increasing Temperature Over Time");
+            fireState = 1;
+        } else if (fgetc(stdin) == 'g') {
+            printf("Increasing Temperature Instantly");
+            fireState = 2;
+        }
+    }
+
     return(EXIT_SUCCESS);
 }
 
@@ -129,5 +141,21 @@ void LPR_generator(char LPR[7])
 
 
 /* ----------------------------------------------Boom arm simulation functions----------------------------------------------------*/
+void toggleGate() {
+
+}
 
 /* ----------------------------------------------Fire sensor functions----------------------------------------------------*/
+void generateTemperature(void) {
+    switch(fireState) {
+        case 1: //Creep Event (Rising Average)
+            //code
+            break;
+        case 2: //Spike Event (Jump to temps > 58)
+            //code
+            break;
+        default: //Normal Operation
+            //code
+            break;
+    }
+}
