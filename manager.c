@@ -10,6 +10,17 @@
 #include<string.h>
 #include "datas.h"
 
+// Global variables
+shm_CP_t CP;
+htab_t h;
+// level counter to count how many cars in a level
+level_car_counter = [0,0,0,0,0]; // zero cars in each level initally
+// creating global linked list
+Car_t *head[5] = NULL;
+for(int i = 0; i < 5; i++)
+{
+    head[i] = NULL;
+}
 
 // initialising the simulation
 bool sim = true;
@@ -31,6 +42,7 @@ int shared_mem_init_open(shm_CP_t* shm, const char* shm_key);
 
 // Functions
 
+// -----------------------------------------------------Shared Memory Function--------------------------------------------------------------------------
 
 int shared_mem_init_open(shm_CP_t* shm, const char* shm_key)
 {   
@@ -42,10 +54,6 @@ int shared_mem_init_open(shm_CP_t* shm, const char* shm_key)
         }
     return(EXIT_SUCCESS);
 }
-
-// functuon to detect if the random license plate is on the allocated .txt file
-
-//
 
 // -----------------------------------------------------Hash Table Function--------------------------------------------------------------------------
 
@@ -107,6 +115,9 @@ NP_t *htab_bucket(htab_t *h, char *key)
 // item find
 NP_t *htab_find(htab_t *h, char *key)
 {
+    char buff[7];
+    memcpy(buff,key, 6);
+    buff[6] = 0;
     for (NP_t *i = htab_bucket(h, key); i != NULL; i = i->next)
     {
         if (strcmp(i->number_plate, key) == 0)
@@ -192,13 +203,75 @@ void htab_print(htab_t *h)
     }
 }
 
+// -----------------------------------------------------Entrance Function--------------------------------------------------------------------------
+
+// Enternce routine
+void *EnterFunc(void* Enter_Num)
+{
+    // grab the entrance number
+    int num = *(int *)Enter_Num;
+    Enter_t *entrance = &CP.shm_ptr->Enter[num];
+    // mutex locking the entrance
+    pthread_mutex_lock(&entrance->LPR_mutex);
+    // infinite loop
+    while(1)
+    {
+        NP_t *i = htab_find(&h,entrance->LPR_reading);
+        // checking if number plate exists in allocated list
+        if (i != NULL)
+        {
+            // locking boom gate mutex to send a signal
+            pthread_mutex_lock(&entrance->BOOM_mutex);
+            entrance->BOOM_status = "R"; // boom gate raising
+            // finding available level
+            int level_num = -1;
+            for(int i = 0; i < 5; i++)
+            {
+                if(level_car_counter[i] < 20)
+                {
+                    level_num = i;
+                    break;
+                }
+            }
+            // check if carpark is full
+            if(level_num == -1)
+            {
+                printf("The carpark is full");
+            }
+            // creating level struct for an empty level
+            Level_t *level = &CP.shm_ptr->Level[level_num];
+            memcpy(level->LPR_reading, entrance->LPR_reading, 6);
+            // creating new car in for linked list
+            Car_t *newcar = (Car_t *)malloc(sizeof(Car_t));
+            // locking the pthread
+            pthread_mutex_lock(&level->LPR_mutex);
+            // allocating LPR to the new car
+            memcpy(newcar->LPR, level->LPR_reading, 6);
+            // allocating level to new car
+            newcar->level = level_num;
+            // clocking time in
+            newcar->time_in = clock();
+            // adding to the front of the linked list of cars for a given level
+            newcar->next = head[level_num];
+            // increasing car level counter
+            level_car_counter[level_num]++;
+            // unlocking car level allocation mutex
+            pthread_mutex_unlock(&level->LPR_mutex);
+            // applying pthread condition
+            pthread_cond_wait(level->LPR_cond, level->LPR_mutex);
+
+        }
+        pthread_cond_wait(&entrance->LPR_cond, &entrance->LPR_mutex);
+    }
+}
+
+
 // -----------------------------------------------------------------------------------------------------------------MAIN--------------------------------------------------------------------------------------------------------------------------------------------------
 
 int main()
 {
     // opening shared memory
     const char* key;
-    shm_CP_t CP;
     key = KEY;
     shared_mem_init_open(&CP, key);
 
