@@ -30,7 +30,8 @@ Car_t head = NULL;
 int cars_in_queue = 0;
 pthread_mutex_t car_queue_mutex;
 pthread_cond_t car_queue_cond;
-
+void *navigateFunc(void *enter_num); // direct a car and remembe the level it goes to (5 threads)
+void *sendCarToEnter(void *enter_num); // sends a car from que to entrance (5 threads)
 
 /* boom arm simulation functions */
 void *toggleGate(void *arg);
@@ -38,9 +39,6 @@ void init_gates();
 
 /* fire sensor simulation functions */
 int fireState = 0; //0 normal operation, 1 for creep & 2 for spike
-
-
-
 
 int main()
 {
@@ -245,7 +243,7 @@ void init_gates()
 
 
 /* ----------------------------------------------Level simulation functions----------------------------------------------------*/
-void *enterFunc(void *enter_num)
+void *navigateFunc(void *enter_num)
 {
     // getting the level number
     int num_enter = *(int *)enter_num;
@@ -255,9 +253,12 @@ void *enterFunc(void *enter_num)
     Level_t *level;
     while(1)
     {  
-        
+        // sending signal to generate a new car
+        pthread_cond_signal(&car_queue_cond); 
+        // check what to do with car
         if(entrance->info_sign_status != 'X')
         {
+            // defining the level we are looking at
             int level_num = ((int) entrance->info_sign_status) - 1;
             level = &CP.shm_ptr->Level[level_num];
             // copy the LPR reading

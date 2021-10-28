@@ -301,6 +301,7 @@ void* enterFunc(void *enter_num)
         pthread_cond_signal(&entrance->LPR_cond);
         // small sleep so we dont clash 
         usleep(10);
+        // waiting for signal from simulator to see if car has arrived
         pthread_cond_wait(&entrance->LPR_cond, &entrance->LPR_mutex);
     }
     //unlocking all mutex
