@@ -27,7 +27,7 @@ void car_sim(shm_CP_t* shm); // car simulation
 void LPR_generator(); // function that will generate random LPR
 
 /* boom arm simulation functions */
-void toggleGate();
+void *toggleGate(void *arg);
 void init_gates();
 
 /* fire sensor simulation functions */
@@ -38,18 +38,17 @@ int main()
     printf("Enter F to trigger Creeping Fire Alarm Event\n");
     printf("Enter G to trigger Spike Fire Alarm Event\n");
     // initialising shared memory
-    shm_CP_t shm;
-    shared_mem_init(&shm, KEY);
+    shared_mem_init(&CP, KEY);
 
     // initializing boom gate status to closed for each level 
     init_gates();
 
     // intialising threads
-    pthread_t[] enterances;
+    pthread_t entrances[NUM_ENTERS];
     // replace 1 with NUM_LEVELS
     for(int i = 0; i < 1; i++ )
     {
-        pthread_create(&enterances[i], NULL, toggleGate, (void *)&i)
+        pthread_create(&entrances[i], NULL, toggleGate, (void *)&i);
     }
 
 
@@ -104,6 +103,7 @@ int shared_mem_init(shm_CP_t* shm, char* shm_key)
     }
 
     // if exited with true then shared memory has been created
+    printf("shared mem pointer: %p\n", shm->shm_ptr);
     return(EXIT_SUCCESS);
 }
 
@@ -161,7 +161,7 @@ void LPR_generator(char LPR[7])
 
 /* ----------------------------------------------Boom arm simulation functions----------------------------------------------------*/
 void *toggleGate(void* entrance_no_ptr) {
-    int entrance_num = *(* int)entrance_no_ptr;
+    int entrance_num = *(int *)entrance_no_ptr;
     Enter_t *entrance = &CP.shm_ptr->Enter[entrance_num];
     
     pthread_mutex_lock(&entrance->BOOM_mutex);
@@ -177,7 +177,7 @@ void *toggleGate(void* entrance_no_ptr) {
             // timing
 
             // change
-            entrance->BOOM_status == 'O'
+            entrance->BOOM_status = 'O';
             // unlock
             pthread_mutex_unlock(&entrance->BOOM_mutex);
 
@@ -189,7 +189,7 @@ void *toggleGate(void* entrance_no_ptr) {
             // timing
 
             // change
-            entrance->BOOM_status == 'C'
+            entrance->BOOM_status = 'C';
             // unlock
             pthread_mutex_unlock(&entrance->BOOM_mutex);
 
@@ -206,7 +206,8 @@ void *toggleGate(void* entrance_no_ptr) {
 void init_gates()
 {
 
-    CP_t *carpark = &CP.shm_ptr;
+    CP_t *carpark = CP.shm_ptr;
+    printf("%p\n", carpark);
     for(int i = 0; i < NUM_LEVELS; i++)
     {
         carpark->Enter[i].BOOM_status = 'C';
