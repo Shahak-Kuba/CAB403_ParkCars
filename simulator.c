@@ -32,6 +32,7 @@ void init_gates();
 
 /* fire sensor simulation functions */
 int fireState = 0; //0 normal operation, 1 for creep & 2 for spike
+int BaseTemp;
 
 int main()
 {
@@ -55,7 +56,7 @@ int main()
 
 
     // Allocate space for LPR
-    char LPR[7];
+    char LPR[LPRSZ+1];
     LPR[6] = 0; // termination char
     for(int i = 0; i < 100; i++)
     {
@@ -118,7 +119,7 @@ void clear_memory( shm_CP_t* shm ) {
 
 /* ----------------------------------------------car simulation functions----------------------------------------------------*/
 
-void LPR_generator(char LPR[7])
+void LPR_generator(char LPR[LPRSZ+1])
 {
     while (true) {
         if (rand() % 100 <= car_list_chance) {
@@ -127,17 +128,17 @@ void LPR_generator(char LPR[7])
             //Measure Number of plates in file.
             FILE* file_ptr = fopen("plates.txt","r");
             fseek(file_ptr,0,SEEK_END);
-            int file_plate_count = ftell(file_ptr) / 7; //assumes all plates are 6 chars long
+            int file_plate_count = ftell(file_ptr) / (LPRSZ+1); //assumes all plates are 6 chars long
             //Take Random Plate from file
-            fseek(file_ptr,(rand() % file_plate_count)*7,SEEK_SET);
-            fgets(LPR,7,file_ptr);
+            fseek(file_ptr,(rand() % file_plate_count)*(LPRSZ+1),SEEK_SET);
+            fgets(LPR,LPRSZ+1,file_ptr);
             //printf("%s.\n",LPR);
             fclose(file_ptr);
 
         } else {
             //Generate random car plate
             //printf("Generate New Plate: ");
-            for(int i = 0; i < 6; i++) {
+            for(int i = 0; i < LPRSZ; i++) {
                 if(i < 3) { // first 3 are numbers
                     LPR[i] = '0' + (random() % 10);
                 } else { // last 3 are letters
@@ -217,10 +218,18 @@ void init_gates()
 
 
 /* ----------------------------------------------Fire sensor functions----------------------------------------------------*/
-void generateTemperature(void) {
-    switch(fireState) {
+void generateTemperature() {
+    int newTemp;
+    for (int i = 0; i < NUM_LEVELS; i++) {
+        //mutex lock rand
+        int tempNoise = ((rand()%2)*2)-1; //sets tempNoise to be -1 or +1;
+        //remove mutex
+        switch(fireState) {
         case 1: //Creep Event (Rising Average)
-            //code
+            if (i%2 == 0) { //increment every 2 steps, should lead to ~15 degree rise over 30 samples
+                BaseTemp++;
+            }
+
             break;
         case 2: //Spike Event (Jump to temps > 58)
             //code
@@ -228,5 +237,7 @@ void generateTemperature(void) {
         default: //Normal Operation
             //code
             break;
+        }
+    //Set newtemp into respective memory
     }
 }
