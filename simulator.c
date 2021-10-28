@@ -11,6 +11,11 @@
 
 int car_list_chance = 50;
 
+
+
+shm_CP_t CP;
+
+
 // predefining shared memory functions
 int shared_mem_init(shm_CP_t* shm, char* shm_key);
 void clear_memory( shm_CP_t* shm ); 
@@ -23,6 +28,7 @@ void LPR_generator(); // function that will generate random LPR
 
 /* boom arm simulation functions */
 void toggleGate();
+void init_gates();
 
 /* fire sensor simulation functions */
 int fireState = 0; //0 normal operation, 1 for creep & 2 for spike
@@ -36,7 +42,16 @@ int main()
     shared_mem_init(&shm, KEY);
     shm_CP_t* shmPtr = &shm;
 
+    // initializing boom gate status to closed for each level 
+    init_gates();
+
     // intialising threads
+    pthread_t[] enterances;
+    // replace 1 with NUM_LEVELS
+    for(int i = 0; i < 1; i++ )
+    {
+        pthread_create(&enterances[i], NULL, toggleGate, (void *)&i)
+    }
 
 
     // Allocate space for LPR
@@ -145,9 +160,61 @@ void LPR_generator(char LPR[7])
 
 
 /* ----------------------------------------------Boom arm simulation functions----------------------------------------------------*/
-void toggleGate() {
+void *toggleGate(void* entrance_no_ptr) {
+    int entrance_num = *(* int)entrance_no_ptr;
+    Enter_t *entrance = &CP.shm_ptr->Enter[entrance_num];
+    
+    pthread_mutex_lock(&entrance->BOOM_mutex);
+    
+    while(1)
+    {
+        // show sign change
+
+
+        // if 'R' then 'O'
+        if(entrance->BOOM_status == 'R')
+        {
+            // timing
+
+            // change
+            entrance->BOOM_status == 'O'
+            // unlock
+            pthread_mutex_unlock(&entrance->BOOM_mutex);
+
+        }
+        
+        // (else) if 'L' then 'C'
+        else 
+        {
+            // timing
+
+            // change
+            entrance->BOOM_status == 'C'
+            // unlock
+            pthread_mutex_unlock(&entrance->BOOM_mutex);
+
+        }
+
+        // Return signal to 
+        pthread_cond_signal(&entrance->info_sign_cond);
+
+        pthread_cond_wait(&entrance->BOOM_cond, &entrance->BOOM_mutex);
+    }
+    pthread_mutex_unlock(&entrance->BOOM_mutex);
+}
+
+void init_gates()
+{
+
+    CP_t *carpark = &CP.shm_ptr;
+    for(int i = 0; i < NUM_LEVELS; i++)
+    {
+        carpark->Enter[i].BOOM_status = 'C';
+    }
 
 }
+
+
 
 /* ----------------------------------------------Fire sensor functions----------------------------------------------------*/
 void generateTemperature(void) {
