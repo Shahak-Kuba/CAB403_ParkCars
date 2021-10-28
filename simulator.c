@@ -1,12 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include<stdbool.h>
 #include <time.h>
 #include <pthread.h>
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <stdbool.h>
+#include<string.h>
 #include "datas.h"
 
 int car_list_chance = 50;
@@ -243,6 +244,31 @@ void init_gates()
 }
 
 
+/* ----------------------------------------------Level simulation functions----------------------------------------------------*/
+void *enterFunc(void *enter_num)
+{
+    // getting the level number
+    int num_enter = *(int *)enter_num;
+    Enter_t *entrance = &CP.shm_ptr->Enter[num_enter];
+
+    pthread_mutex_lock(&entrance->info_sign_mutex);
+    Level_t *level;
+    while(1)
+    {  
+        
+        if(entrance->info_sign_status != 'X')
+        {
+            int level_num = ((int) entrance->info_sign_status) - 1;
+            level = &CP.shm_ptr->Level[level_num];
+            // copy the LPR reading
+            memcpy(level->LPR_reading,entrance->LPR_reading, 6);
+
+        }
+
+
+        pthread_cond_wait(&entrance->info_sign_cond,&entrance->info_sign_mutex)
+    }
+}
 
 /* ----------------------------------------------Fire sensor functions----------------------------------------------------*/
 void generateTemperature(void) {

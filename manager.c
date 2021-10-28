@@ -17,13 +17,6 @@ htab_t h;
 // level counter to count how many cars in a level
 int level_car_counter[] = {0,0,0,0,0}; // zero cars in each level initally
 pthread_mutex_t level_car_counter_mutex;
-/*2
-// creating global linked list
-Car_t *head[5];
-for (int i = 0; i < 5; i++)
-{
-    head[i] = NULL;
-}*/
 
 // initialising the simulation
 bool sim = true;
@@ -34,10 +27,10 @@ bool sim = true;
 
 
 /* SHARED MEMORY functions */
-int shared_mem_init_open(shm_CP_t* shm, const char* shm_key);
+int shared_mem_init_open(shm_CP_t *shm, const char *shm_key);
 
 /* ENTRANCE functions */
-
+void *enterFunc(void *enter_num);
 
 /* EXIT functions */
 
@@ -47,7 +40,7 @@ int shared_mem_init_open(shm_CP_t* shm, const char* shm_key);
 
 // -----------------------------------------------------Shared Memory Function--------------------------------------------------------------------------
 
-int shared_mem_init_open(shm_CP_t* shm, const char* shm_key)
+int shared_mem_init_open(shm_CP_t* shm, const char *shm_key)
 {   
     // opening the shared data, otherwise producing an error
     if ((shm->fd = shm_open(shm_key, O_RDWR, 0)) < 0)
@@ -217,7 +210,7 @@ void htab_print(htab_t *h)
 
 // Enternce routine
 
-void* enterFunc(void* enter_num)
+void* enterFunc(void *enter_num)
 {
     // get the entrance we are looking at
     int num = *(int *)enter_num;
@@ -234,11 +227,11 @@ void* enterFunc(void* enter_num)
             // copy the number plate from car arrived at gate
             memcpy(temp_LPR, entrance->LPR_reading, 6);
             temp_LPR[6] = 0;
+            int level_num = -1;
             // check if car is allowed in
             if(htab_find(&h, temp_LPR) != NULL){
                 // find level number and incrementing
                 pthread_mutex_lock(&level_car_counter_mutex);
-                int level_num = -1;
                 for (int i = 0; i < NUM_LEVELS; i++)
                 {
                     if(level_car_counter[i] < LEVEL_CAPACITY)
@@ -267,17 +260,22 @@ void* enterFunc(void* enter_num)
                 // sending signal to simulator boom
                 pthread_cond_signal(&entrance->BOOM_cond);
                 // waiting for the gate to open
-                //pthread_cond_wait(&entrance->BOOM_cond, &entrance->BOOM_mutex);
+                pthread_cond_wait(&entrance->BOOM_cond, &entrance->BOOM_mutex);
 
-                // let car into level (level routine)
+                // changing the sign
+                pthread_mutex_lock(&entrance->info_sign_mutex);
+                entrance->info_sign_status = '1' + level_num; // min level is level 1
+                pthread_mutex_unlock(&entrance->info_sign_mutex);
+                pthread_cond_signal(&entrance->info_sign_cond);
 
+                /*
                 // find/ allocate the car to a level
                 Level_t *level = &CP.shm_ptr->Level[level_num]; 
                 pthread_mutex_lock(&level->LPR_mutex);
                 memcpy(level->LPR_reading,temp_LPR,6);
                 pthread_mutex_unlock(&level->LPR_mutex);
                 // send signal to level LPR
-                pthread_cond_signal(&level->LPR_cond);
+                pthread_cond_signal(&level->LPR_cond);*/
 
                 // sending signal to lower boom gate
                 pthread_mutex_lock(&entrance->BOOM_mutex);
@@ -286,14 +284,23 @@ void* enterFunc(void* enter_num)
                 // sending signal to simulator boom
                 pthread_cond_signal(&entrance->BOOM_cond);
                 // waiting for the gate to open
-                //pthread_cond_wait(&entrance->BOOM_cond, &entrance->BOOM_mutex);
-
-
-                
+                pthread_cond_wait(&entrance->BOOM_cond, &entrance->BOOM_mutex);
+ 
+            }
+            if(level_num == -1)
+            {
+                // changing the sign to be 'X'
+                pthread_mutex_lock(&entrance->info_sign_mutex);
+                entrance->info_sign_status = 'X';
+                pthread_cond_signal(&entrance->info_sign_cond);
             }
         }
         //removing the car from entrance
         entrance->LPR_reading[0] = 0;
+        // signal to let simulator know the entrance is empty
+        pthread_cond_signal(&entrance->LPR_cond);
+        // small sleep so we dont clash 
+        usleep(10);
         pthread_cond_wait(&entrance->LPR_cond, &entrance->LPR_mutex);
     }
     //unlocking all mutex
@@ -306,6 +313,23 @@ void* enterFunc(void* enter_num)
 
 // Level routine
 
+void *levelFunc(void *level_num)
+{
+   // get the level we are looking at
+   int num_level = *(int *)level_num;
+   Level_t *level = &CP.shm_ptr->Level[num_level];
+
+   // inital mutex lock
+   pthread_mutex_lock(&level->LPR_mutex);
+
+   while(1)
+   {
+
+
+        pthread_cond_wait(&level->LPR_cond, &level->LPR_mutex);
+   } 
+
+}
 
 // -----------------------------------------------------------------------------------------------------------------MAIN--------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -324,9 +348,16 @@ int main()
         return EXIT_FAILURE;
     }
 
+    // allocate plates to hash table
     LPR_to_htab(&h);
-    htab_print(&h);
+    htab_print(&h); // debug print
 
+
+    // creating linked list to the cars at each level
+
+
+
+    /*
     printf("SENDING IT.....\n");
     char LPR[7] = "927KOB";
     printf("%s \n", LPR);
@@ -343,7 +374,7 @@ int main()
     pthread_mutex_unlock(&CP.shm_ptr->Enter[0].LPR_mutex);
 
     int* ptr;
-    pthread_join(enter, (void**)&ptr);
+    pthread_join(enter, (void**)&ptr);*/
 
     return EXIT_SUCCESS;
 }
