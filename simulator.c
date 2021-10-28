@@ -14,7 +14,7 @@ int car_list_chance = 50;
 
 
 shm_CP_t CP;
-
+pthread_mutex_t rand_mutex;
 
 // predefining shared memory functions
 int shared_mem_init(shm_CP_t* shm, char* shm_key);
@@ -32,10 +32,11 @@ void init_gates();
 
 /* fire sensor simulation functions */
 int fireState = 0; //0 normal operation, 1 for creep & 2 for spike
-int BaseTemp;
+int16_t BaseTemp;
 
 int main()
 {
+    pthread_mutex_init(&rand_mutex, NULL);
     printf("Enter F to trigger Creeping Fire Alarm Event\n");
     printf("Enter G to trigger Spike Fire Alarm Event\n");
     // initialising shared memory
@@ -119,44 +120,30 @@ void clear_memory( shm_CP_t* shm ) {
 
 /* ----------------------------------------------car simulation functions----------------------------------------------------*/
 
-void LPR_generator(char LPR[LPRSZ+1])
-{
-    while (true) {
-        if (rand() % 100 <= car_list_chance) {
-            //printf("Use Car Plate: ");
-            //Use car from plates.txt
-            //Measure Number of plates in file.
-            FILE* file_ptr = fopen("plates.txt","r");
-            fseek(file_ptr,0,SEEK_END);
-            int file_plate_count = ftell(file_ptr) / (LPRSZ+1); //assumes all plates are 6 chars long
-            //Take Random Plate from file
-            fseek(file_ptr,(rand() % file_plate_count)*(LPRSZ+1),SEEK_SET);
-            fgets(LPR,LPRSZ+1,file_ptr);
-            //printf("%s.\n",LPR);
-            fclose(file_ptr);
+void LPR_generator(char LPR[LPRSZ+1]) {
+    pthread_mutex_lock(&rand_mutex);
+    if (rand() % 100 <= car_list_chance) {
+        //Use car from plates.txt
+        //Measure Number of plates in file.
+        FILE* file_ptr = fopen("plates.txt","r");
+        fseek(file_ptr,0,SEEK_END);
+        int file_plate_count = ftell(file_ptr) / (LPRSZ+1); //assumes all plates are 6 chars long
+        //Take Random Plate from file
+        fseek(file_ptr,(rand() % file_plate_count)*(LPRSZ+1),SEEK_SET);
+        fgets(LPR,LPRSZ+1,file_ptr);
+        fclose(file_ptr);
 
         } else {
-            //Generate random car plate
-            //printf("Generate New Plate: ");
-            for(int i = 0; i < LPRSZ; i++) {
-                if(i < 3) { // first 3 are numbers
-                    LPR[i] = '0' + (random() % 10);
-                } else { // last 3 are letters
-                    LPR[i] = 'A' + random() % 26;
-                }
+        //Generate random car plate
+        for(int i = 0; i < LPRSZ; i++) {
+            if(i < 3) { // first 3 are numbers
+                LPR[i] = '0' + (random() % 10);
+            } else { // last 3 are letters
+                LPR[i] = 'A' + random() % 26;
             }
-            //printf("%s.\n",LPR);
         }
-
-        break;
-
-        //Break and finish if plate doesnt exist
-        /*
-        if (! plate exists) {
-            break;
-        }
-        */
     }    
+    pthread_mutex_unlock(&rand_mutex);
 }
 
 
@@ -219,25 +206,26 @@ void init_gates()
 
 /* ----------------------------------------------Fire sensor functions----------------------------------------------------*/
 void generateTemperature() {
-    int newTemp;
     for (int i = 0; i < NUM_LEVELS; i++) {
-        //mutex lock rand
-        int tempNoise = ((rand()%2)*2)-1; //sets tempNoise to be -1 or +1;
-        //remove mutex
+        pthread_mutex_lock(&rand_mutex);
+        int16_t tempNoise = ((rand()%2)*2)-1; //sets tempNoise to be -1 or +1;
+        pthread_mutex_unlock(&rand_mutex);
+
         switch(fireState) {
         case 1: //Creep Event (Rising Average)
-            if (i%2 == 0) { //increment every 2 steps, should lead to ~15 degree rise over 30 samples
                 BaseTemp++;
             }
+            CP.shm_ptr->Level[i]->temp_sensor = BaseTemp + tempNoise;
+            break;
 
-            break;
         case 2: //Spike Event (Jump to temps > 58)
-            //code
+            CP.shm_ptr->Level[i]->temp_sensor = 60;
             break;
+
         default: //Normal Operation
-            //code
+            BaseTemp = 30;
+            CP.shm_ptr->Level[i]->temp_sensor = BaseTemp + (2*tempNoise); //change me
             break;
         }
-    //Set newtemp into respective memory
     }
 }
