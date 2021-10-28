@@ -79,16 +79,16 @@ typedef struct Shm_Carpark {
 } shm_CP_t;
 
 // Car data type
-
+/*
+typedef struct Car Car_t;
 typedef struct Car
 {
-    int thread_no;
     int level;
     char LPR[6]; // random LPR number with a space for 0 char
-    time_t time_in; // entered time
-    time_t time_out; // exited time
-    struct Car *next;
-} Car_t;
+    clock_t time_in; // entered time
+    clock_t time_out; // exited time
+    struct Car_t *next;
+};*/
 
 // ---------------------------------------------------------Hash table-------------------------------------------------------
 typedef struct NP NP_t;
