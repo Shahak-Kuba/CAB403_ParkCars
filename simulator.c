@@ -203,12 +203,12 @@ void init_gates()
 }
 
 
-
 /* ----------------------------------------------Fire sensor functions----------------------------------------------------*/
 void generateTemperature() {
     for (int i = 0; i < NUM_LEVELS; i++) {
         pthread_mutex_lock(&rand_mutex);
         int16_t tempNoise = ((rand()%2)*2)-1; //sets tempNoise to be -1 or +1;
+        int16_t randScalar = rand()%4;
         pthread_mutex_unlock(&rand_mutex);
 
         switch(fireState) {
@@ -224,7 +224,7 @@ void generateTemperature() {
 
         default: //Normal Operation
             BaseTemp = 30;
-            CP.shm_ptr->Level[i]->temp_sensor = BaseTemp + (2*tempNoise); //change me
+            CP.shm_ptr->Level[i]->temp_sensor = BaseTemp + (tempNoise*randScalar); // -3 - +3 higher or lower than base temp
             break;
         }
     }
