@@ -15,7 +15,6 @@ int car_list_chance = 50;
 
 shm_CP_t CP;
 
-
 // predefining shared memory functions
 int shared_mem_init(shm_CP_t* shm, char* shm_key);
 void clear_memory( shm_CP_t* shm ); 
@@ -25,6 +24,12 @@ void clear_memory( shm_CP_t* shm );
 /* car simulation functions */
 void car_sim(shm_CP_t* shm); // car simulation
 void LPR_generator(); // function that will generate random LPR
+void *generate_car_queue(void *arg) // function that will fill a linked list of cars waiting for a 
+Car_t head = NULL;
+int cars_in_queue = 0;
+pthread_mutex_t car_queue_mutex;
+pthread_cond_t car_queue_cond;
+
 
 /* boom arm simulation functions */
 void *toggleGate(void *arg);
@@ -32,6 +37,9 @@ void init_gates();
 
 /* fire sensor simulation functions */
 int fireState = 0; //0 normal operation, 1 for creep & 2 for spike
+
+
+
 
 int main()
 {
@@ -125,7 +133,7 @@ void LPR_generator(char LPR[7])
             //printf("Use Car Plate: ");
             //Use car from plates.txt
             //Measure Number of plates in file.
-            FILE* file_ptr = fopen("plates.txt","r");
+            FILE* file_ptr = fopen(LPFILE,"r");
             fseek(file_ptr,0,SEEK_END);
             int file_plate_count = ftell(file_ptr) / 7; //assumes all plates are 6 chars long
             //Take Random Plate from file
@@ -158,6 +166,29 @@ void LPR_generator(char LPR[7])
     }    
 }
 
+void *generate_car_queue(void *arg)
+{
+    pthread_mutex_lock(&car_queue_mutex);
+    while(1)
+    {
+        while(cars_in_queue < QUEUE_LENGTH)
+        {
+            // add another car to queue
+            Car_t *newCar = (Car_t *) malloc(sizeof(Car_t));
+            char LPlate[7];
+            LPR_generator(LPlate);
+            memcpy(newCar->LPR,LPlate, 6);
+            newCar->next = head;
+            head = newCar;
+            cars_in_queue++;
+        }
+        
+        pthread_cond_wait(&car_queue_cond, &car_queue_mutex);
+    }
+}
+
+void *send_car_to_level()
+
 
 /* ----------------------------------------------Boom arm simulation functions----------------------------------------------------*/
 void *toggleGate(void* entrance_no_ptr) {
@@ -168,9 +199,6 @@ void *toggleGate(void* entrance_no_ptr) {
     
     while(1)
     {
-        // show sign change
-
-
         // if 'R' then 'O'
         if(entrance->BOOM_status == 'R')
         {
@@ -192,7 +220,6 @@ void *toggleGate(void* entrance_no_ptr) {
             entrance->BOOM_status = 'C';
             // unlock
             pthread_mutex_unlock(&entrance->BOOM_mutex);
-
         }
 
         // Return signal to 

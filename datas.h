@@ -15,6 +15,7 @@
 #define LPRSZ 6
 #define LEVEL_CAPACITY 20
 #define LPFILE "plates.txt"
+#define QUEUE_LENGTH 15
 
 
 // Struct for Entrance
@@ -79,7 +80,6 @@ typedef struct Shm_Carpark {
 } shm_CP_t;
 
 // Car data type
-/*
 typedef struct Car Car_t;
 typedef struct Car
 {
@@ -88,7 +88,7 @@ typedef struct Car
     clock_t time_in; // entered time
     clock_t time_out; // exited time
     struct Car_t *next;
-};*/
+};
 
 // ---------------------------------------------------------Hash table-------------------------------------------------------
 typedef struct NP NP_t;
