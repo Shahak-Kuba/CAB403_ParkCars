@@ -259,23 +259,42 @@ void* enterFunc(void* enter_num)
                 // release level counter mutex 
                 pthread_mutex_unlock(&level_car_counter_mutex);
                 printf("%s inserted into carpark at level %d\n", temp_LPR, level_num);
-                // sending signal and updating status
+
+                // sending signal to open boom gate 
                 pthread_mutex_lock(&entrance->BOOM_mutex);
                 entrance->BOOM_status = 'R';
                 pthread_mutex_unlock(&entrance->BOOM_mutex);
                 // sending signal to simulator boom
                 pthread_cond_signal(&entrance->BOOM_cond);
+                // waiting for the gate to open
+                //pthread_cond_wait(&entrance->BOOM_cond, &entrance->BOOM_mutex);
+
+                // let car into level (level routine)
 
                 // find/ allocate the car to a level
                 Level_t *level = &CP.shm_ptr->Level[level_num]; 
                 pthread_mutex_lock(&level->LPR_mutex);
                 memcpy(level->LPR_reading,temp_LPR,6);
                 pthread_mutex_unlock(&level->LPR_mutex);
+                // send signal to level LPR
+                pthread_cond_signal(&level->LPR_cond);
+
+                // sending signal to lower boom gate
+                pthread_mutex_lock(&entrance->BOOM_mutex);
+                entrance->BOOM_status = 'L';
+                pthread_mutex_unlock(&entrance->BOOM_mutex);
+                // sending signal to simulator boom
+                pthread_cond_signal(&entrance->BOOM_cond);
+                // waiting for the gate to open
+                //pthread_cond_wait(&entrance->BOOM_cond, &entrance->BOOM_mutex);
+
+
                 
             }
         }
+        //removing the car from entrance
+        entrance->LPR_reading[0] = 0;
         pthread_cond_wait(&entrance->LPR_cond, &entrance->LPR_mutex);
-        printf("recieved signal\n");
     }
     //unlocking all mutex
     pthread_mutex_unlock(&entrance->LPR_mutex);
@@ -313,10 +332,10 @@ int main()
 
     memcpy(CP.shm_ptr->Enter[0].LPR_reading, LPR, 6);
 
-    int level_num = 0;
+    int enter_num = 0;
 
     pthread_t enter; 
-    pthread_create(&enter,NULL, enterFunc , (void *)&level_num);
+    pthread_create(&enter,NULL, enterFunc , (void *)&enter_num);
     sleep(1);
     pthread_mutex_lock(&CP.shm_ptr->Enter[0].LPR_mutex);
     pthread_cond_signal(&CP.shm_ptr->Enter[0].LPR_cond);
