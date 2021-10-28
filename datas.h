@@ -79,7 +79,7 @@ typedef struct Shm_Carpark {
 } shm_CP_t;
 
 // Car data type
-
+/*
 typedef struct Car Car_t;
 typedef struct Car
 {
@@ -88,7 +88,7 @@ typedef struct Car
     clock_t time_in; // entered time
     clock_t time_out; // exited time
     struct Car_t *next;
-};
+};*/
 
 // ---------------------------------------------------------Hash table-------------------------------------------------------
 typedef struct NP NP_t;
