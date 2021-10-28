@@ -342,40 +342,13 @@ void init_gates()
 }
 
 
-/* ----------------------------------------------Level simulation functions----------------------------------------------------*/
-void *navigate_func(void *enter_num)
-{
-    // getting the level number
-    int num_enter = *(int *)enter_num;
-    Enter_t *entrance = &CP.shm_ptr->Enter[num_enter];
-
-    pthread_mutex_lock(&entrance->info_sign_mutex);
-    Level_t *level;
     while(1)
-    {  
-        // sending signal to generate a new car
-        pthread_cond_signal(&car_queue_cond); 
-        // check what to do with car
-        if(entrance->info_sign_status != 'X')
-        {
-            // defining the level we are looking at
-            int level_num = ((int) entrance->info_sign_status) - 1;
-            level = &CP.shm_ptr->Level[level_num];
-            // copy the LPR reading
-            memcpy(level->LPR_reading,entrance->LPR_reading, 6);
-
-        }
-
-
-        pthread_cond_wait(&entrance->info_sign_cond,&entrance->info_sign_mutex);
-    }
-}
-
 /* ----------------------------------------------Fire sensor functions----------------------------------------------------*/
 void generateTemperature() {
     for (int i = 0; i < NUM_LEVELS; i++) {
         pthread_mutex_lock(&rand_mutex);
         int16_t tempNoise = ((rand()%2)*2)-1; //sets tempNoise to be -1 or +1;
+        int16_t randScalar = rand()%4;
         pthread_mutex_unlock(&rand_mutex);
 
         switch(fireState) {
@@ -391,7 +364,7 @@ void generateTemperature() {
 
         default: //Normal Operation
             BaseTemp = 30;
-            CP.shm_ptr->Level[i]->temp_sensor = BaseTemp + (2*tempNoise); //change me
+            CP.shm_ptr->Level[i]->temp_sensor = BaseTemp + (tempNoise*randScalar); // -3 - +3 higher or lower than base temp
             break;
         }
     }
