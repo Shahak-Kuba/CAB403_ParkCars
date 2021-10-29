@@ -23,6 +23,7 @@ bool sim = true;
 
 // car data type to for manager to know car info
 
+/*
 typedef struct Car Car_t;
 typedef struct Car
 {
@@ -31,17 +32,16 @@ typedef struct Car
     clock_t time_in; // entered time
     clock_t time_out; // exited time
     struct Car_t *next; // pointer to next car in linked list
-};
+}*/
 
 // Predefining functions
-
 
 /* Hash Table functions */
 bool htab_init(htab_t *h, size_t n);
 size_t djb_hash(char *s);
 size_t htab_index(htab_t *h, char *key);
 bool htab_add(htab_t *h, char key[7]);
-NP_t *htab_bucket(htab_t *h, char *key)
+NP_t *htab_bucket(htab_t *h, char *key);
 NP_t *htab_find(htab_t *h, char *key);
 void htab_destroy(htab_t *h);
 int LPR_to_htab(htab_t *h);
@@ -82,7 +82,7 @@ int main()
 
 
 
-    /*
+    
     printf("SENDING IT.....\n");
     char LPR[7] = "927KOB";
     printf("%s \n", LPR);
@@ -99,7 +99,7 @@ int main()
     pthread_mutex_unlock(&CP.shm_ptr->Enter[0].LPR_mutex);
 
     int* ptr;
-    pthread_join(enter, (void**)&ptr);*/
+    pthread_join(enter, (void**)&ptr);
 
     return EXIT_SUCCESS;
 }
@@ -324,7 +324,13 @@ void* enterFunc(void *enter_num)
 
                 // release level counter mutex 
                 pthread_mutex_unlock(&level_car_counter_mutex);
+                // checking cars are going to the right level
                 printf("%s inserted into carpark at level %d\n", temp_LPR, level_num);
+                printf("number of cars in a each level: \n" );
+                for(int i = 0; i < NUM_LEVELS; i++)
+                {
+                    printf("Level %d: %d \n",i+1, level_car_counter[i]);
+                }
                 
                 // changing the sign
                 pthread_mutex_lock(&entrance->info_sign_mutex);
@@ -342,15 +348,6 @@ void* enterFunc(void *enter_num)
                 pthread_cond_wait(&entrance->BOOM_cond, &entrance->BOOM_mutex);
                 
                 usleep(20000); // 20ms wait before boomgate closes
-
-                /*
-                // find/ allocate the car to a level
-                Level_t *level = &CP.shm_ptr->Level[level_num]; 
-                pthread_mutex_lock(&level->LPR_mutex);
-                memcpy(level->LPR_reading,temp_LPR,6);
-                pthread_mutex_unlock(&level->LPR_mutex);
-                // send signal to level LPR
-                pthread_cond_signal(&level->LPR_cond);*/
 
                 // sending signal to lower boom gate
                 pthread_mutex_lock(&entrance->BOOM_mutex);

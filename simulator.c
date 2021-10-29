@@ -40,6 +40,9 @@ void enqueue(queue *q, char LP[7]);
 char* dequeue(queue *q);
 void display(NP_t *head);
 
+// car generation function
+int linecount = 0;
+
 
 /* boom arm simulation functions */
 void *toggleGate(void *arg);
@@ -64,15 +67,18 @@ int main()
 
 
     /*********************** INIT THREADS ***********************/
-    pthread_create(&car_queue_thread, NULL, generate_car_queue, (void*)0);
-    pthread_t entrances[NUM_ENTERS];
+    pthread_create(&car_queue_thread, NULL, generate_car_queue, (void*)q);
+   // pthread_t entrances[NUM_ENTERS];
     // replace 1 with NUM_LEVELS
+    /*
     for(int i = 0; i < 1; i++ )
     {
         pthread_create(&entrances[i], NULL, send_car_to_enter, (void *)&i  );
-        pthread_create(&entrances[i], NULL, toggleGate, (void *)&i);
+        //pthread_create(&entrances[i], NULL, toggleGate, (void *)&i);
         
-    }
+    }*/
+
+    pthread_join(car_queue_thread, (void*) 0);
     
     
     
@@ -149,6 +155,7 @@ void LPR_generator(char LPR[7])
 {
     while (true) {
         if (rand() % 100 <= car_list_chance) {
+            printf("picking one from the list,\n");
             //printf("Use Car Plate: ");
             //Use car from plates.txt
             //Measure Number of plates in file.
@@ -156,10 +163,16 @@ void LPR_generator(char LPR[7])
             fseek(file_ptr,0,SEEK_END);
             int file_plate_count = ftell(file_ptr) / 7; //assumes all plates are 6 chars long
             //Take Random Plate from file
-            fseek(file_ptr,(rand() % file_plate_count)*7,SEEK_SET);
+            fseek(file_ptr,linecount*7,SEEK_SET);
+            linecount++;
             fgets(LPR,7,file_ptr);
-            //printf("%s.\n",LPR);
+            printf("%s.\n",LPR);
             fclose(file_ptr);
+
+            if(linecount == file_plate_count)
+            {
+                linecount = 0;
+            }
 
         } else {
             //Generate random car plate
@@ -272,7 +285,7 @@ void enqueue(queue *q, char LP[7])
         printf("Queue is full.... if this prints it's a bad sign :(( \n");
     }
 
-    printf("%s enqueued", LP);
+    printf("%s\n", LP);
 }
 
 char * dequeue(queue *q)
