@@ -1,18 +1,16 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include<stdbool.h>
+#include <stdbool.h>
 #include <time.h>
 #include <pthread.h>
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include<string.h>
+#include <string.h>
 #include "datas.h"
 
 int car_list_chance = 50;
-
-
 
 shm_CP_t CP;
 
@@ -25,13 +23,23 @@ void clear_memory( shm_CP_t* shm );
 /* car simulation functions */
 void car_sim(shm_CP_t* shm); // car simulation
 void LPR_generator(); // function that will generate random LPR
-void *generate_car_queue(void *arg) // function that will fill a linked list of cars waiting for a 
-Car_t head = NULL;
-int cars_in_queue = 0;
+void *navigate_func(void *enter_num); // direct a car and remembe the level it goes to (5 threads)
+void *send_car_to_enter(void *enter_num); // sends a car from que to entrance (5 threads)
+void *generate_car_queue(void *arg); // function that will fill a linked list of cars waiting for a 
+
+// queue thread
+pthread_t car_queue_thread;
 pthread_mutex_t car_queue_mutex;
 pthread_cond_t car_queue_cond;
-void *navigateFunc(void *enter_num); // direct a car and remembe the level it goes to (5 threads)
-void *sendCarToEnter(void *enter_num); // sends a car from que to entrance (5 threads)
+
+// car queue functions
+queue *q;
+void initialize(queue *q);
+int isempty(queue *q);
+void enqueue(queue *q, char LP[7]);
+char* dequeue(queue *q);
+void display(NP_t *head);
+
 
 /* boom arm simulation functions */
 void *toggleGate(void *arg);
@@ -49,24 +57,36 @@ int main()
 
     // initializing boom gate status to closed for each level 
     init_gates();
+    
+    // initialize queue
+    q = malloc(sizeof(queue));
+    initialize(q);
 
-    // intialising threads
+
+    /*********************** INIT THREADS ***********************/
+    pthread_create(&car_queue_thread, NULL, generate_car_queue, (void*)0);
     pthread_t entrances[NUM_ENTERS];
     // replace 1 with NUM_LEVELS
     for(int i = 0; i < 1; i++ )
     {
+        pthread_create(&entrances[i], NULL, send_car_to_enter, (void *)&i  );
         pthread_create(&entrances[i], NULL, toggleGate, (void *)&i);
+        
     }
-
+    
+    
+    
 
     // Allocate space for LPR
+    /*
     char LPR[7];
     LPR[6] = 0; // termination char
-    for(int i = 0; i < 500; i++)
+    for(int i = 0; i < 10; i++)
     {
         LPR_generator(LPR);
         printf("%s\n",LPR);
     }
+    */
     //main loop
     for (;;) {
         if (fgetc(stdin) == 'f') {
@@ -165,29 +185,121 @@ void LPR_generator(char LPR[7])
     }    
 }
 
-void *generate_car_queue(void *arg)
+
+void *send_car_to_enter(void *enter_num)
+{
+    // get level cast from void
+    int num = *(int *)enter_num;
+    printf("%d enterance got car", num);
+    Enter_t *entrance = &CP.shm_ptr->Enter[num];
+
+    // mutex lock this thread
+    printf("locking lpr");
+    pthread_mutex_lock(&entrance->LPR_mutex); // ensure this bahaviour is as expected and doesn't fully freeze
+    while(1)
+    {
+        // get LP from queue
+
+        memcpy(entrance->LPR_reading, dequeue(q), 6);
+
+        // send signal to &entrance->LPR_cond
+        pthread_cond_signal(&entrance->LPR_cond);
+        printf("Signal sent to entrance LPR");
+
+        // send signal to generator function
+        pthread_cond_signal(&car_queue_cond);
+        printf("Signal sent to carqueue gen");
+
+        // wait for LPR_cond signal
+        pthread_cond_wait(&entrance->LPR_cond, &entrance->LPR_mutex);
+    }
+}
+
+void *generate_car_queue(void* arg)
 {
     pthread_mutex_lock(&car_queue_mutex);
     while(1)
     {
-        while(cars_in_queue < QUEUE_LENGTH)
+        while(q->count < QUEUE_LENGTH)
         {
             // add another car to queue
-            Car_t *newCar = (Car_t *) malloc(sizeof(Car_t));
-            char LPlate[7];
+            static char LPlate[7];
             LPR_generator(LPlate);
-            memcpy(newCar->LPR,LPlate, 6);
-            newCar->next = head;
-            head = newCar;
-            cars_in_queue++;
+            
+            //enqueue car
+            enqueue(q, LPlate);
         }
         
         pthread_cond_wait(&car_queue_cond, &car_queue_mutex);
+        printf("%p", arg); /// Only here cause get error dunno how to not parse an arg
     }
 }
 
-void *send_car_to_level()
+// Car queue functions
+void initialize(queue *q)
+{
+    q->count = 0;
+    q->front = NULL;
+    q->rear = NULL;
+}
 
+int isempty(queue *q)
+{
+    return (q->rear == NULL);
+}
+
+void enqueue(queue *q, char LP[7])
+{
+    if (q->count < QUEUE_LENGTH)
+    {
+        NP_t *tmp;
+        tmp = malloc(sizeof(NP_t));
+        memcpy(tmp->number_plate,LP, 6);
+        tmp->next = NULL;
+        if(!isempty(q))
+        {
+            q->rear->next = tmp;
+            q->rear = tmp;
+        }
+        else
+        {
+            q->front = q->rear = tmp;
+        }
+        q->count++;
+    }
+    else
+    {
+        printf("Queue is full.... if this prints it's a bad sign :(( \n");
+    }
+
+    printf("%s enqueued", LP);
+}
+
+char * dequeue(queue *q)
+{
+    NP_t *tmp;
+    char *number_plate = malloc(7);
+    memcpy(number_plate, q->front->number_plate, 6);
+    number_plate[6] = 0;
+    tmp = q->front;
+    q->front = q->front->next;
+    q->count--;
+    free(tmp);
+    return(number_plate);
+}
+
+void display(NP_t *head)
+{
+    if(head == NULL)
+    {
+        printf("NULL\n");
+    }
+    else
+    {
+        printf("%s\n", head -> number_plate);
+        display(head->next);
+    }
+}
 
 /* ----------------------------------------------Boom arm simulation functions----------------------------------------------------*/
 void *toggleGate(void* entrance_no_ptr) {
@@ -243,7 +355,7 @@ void init_gates()
 
 
 /* ----------------------------------------------Level simulation functions----------------------------------------------------*/
-void *navigateFunc(void *enter_num)
+void *navigate_func(void *enter_num)
 {
     // getting the level number
     int num_enter = *(int *)enter_num;
@@ -267,7 +379,7 @@ void *navigateFunc(void *enter_num)
         }
 
 
-        pthread_cond_wait(&entrance->info_sign_cond,&entrance->info_sign_mutex)
+        pthread_cond_wait(&entrance->info_sign_cond,&entrance->info_sign_mutex);
     }
 }
 
