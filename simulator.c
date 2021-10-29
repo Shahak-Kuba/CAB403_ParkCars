@@ -55,6 +55,7 @@ void init_gates();
 /* fire sensor simulation functions */
 int fireState = 0; //0 normal operation, 1 for creep & 2 for spike
 int16_t BaseTemp;
+void generateTemperature();
 
 int main()
 {

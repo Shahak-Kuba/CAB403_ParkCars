@@ -1,9 +1,9 @@
 #include "datas.h"
 
 int shm_fd;
-shm_CP_t *shm;
+shm_CP_t shm;
 int alarm_active = 0;
-
+int shared_mem_init_open(shm_CP_t *shm, const char *shm_key);
 
 
 
@@ -75,10 +75,12 @@ int16_t get_median(int16_t array[] , int n)
 void tempmonitor(int level)
 {
 
-	int count, temp, mediantemp, hightemps;
+	int count, mediantemp, hightemps;
+    int16_t temp;
 
-    Level_t *levels = shm->shm_ptr->Level;
-    temp = &levels[level].temp_sensor;
+    //Level_t *levels = shm->shm_ptr->Level;
+    //temp = &levels[level].temp_sensor;
+    temp = shm.shm_ptr->Level[level].temp_sensor;
     count = tempArrayIndex[level];
 
     if(count != 5){
@@ -124,6 +126,24 @@ void tempmonitor(int level)
     usleep(2000);	
 }
 
+int shared_mem_init_open(shm_CP_t* shm, const char *shm_key)
+{   
+    // opening the shared data, otherwise producing an error
+    if ((shm->fd = shm_open(shm_key, O_RDWR, 0)) < 0)
+        {
+            perror("unable to open shared memory");
+            return(EXIT_FAILURE);
+        }
+    // mapping memory
+    if((shm->shm_ptr = mmap(0, SHMSZ, PROT_WRITE, MAP_SHARED, shm->fd,0)) == (CP_t *) - 1)
+    {
+        perror("mmap");
+        return(EXIT_FAILURE);
+    }
+    printf("shared memory opened!\n");
+    return(EXIT_SUCCESS);
+}
+
 void *openboomgate(boomgate *bg)
 {
 	pthread_mutex_lock(&bg->m);
@@ -142,8 +162,9 @@ void *openboomgate(boomgate *bg)
 
 int main(void)
 {
-	shm_fd = shm_open("PARKING", O_RDWR, 0);
-	shm = (volatile void *) mmap(0, 2920, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    const char* key;
+    key = KEY;
+    shared_mem_init_open(&shm, key);
 
     while(alarm_active == 0)
     {
@@ -166,11 +187,12 @@ int main(void)
 	
 	// Show evacuation message on an endless loop
 	for (;;) {
+        /*
 		char *evacmessage = "EVACUATE ";
 		for (char *p = evacmessage; *p != '\0'; p++) {
 			for (int i = 0; i < ENTRANCES; i++) {
 				int addr = 288 * i + 192;
-				volatile struct parkingsign *sign = shm + addr;
+				volatile struct parkingsign *sign = &shm + addr;
 				pthread_mutex_lock(&sign->m);
 				sign->display = *p;
 				pthread_cond_broadcast(&sign->c);
@@ -178,6 +200,7 @@ int main(void)
 			}
 			usleep(20000);
 		}
+        */
 	}
 
     return EXIT_SUCCESS;
