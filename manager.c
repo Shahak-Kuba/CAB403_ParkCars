@@ -1,13 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include<stdbool.h>
+#include <stdbool.h>
 #include <time.h>
 #include <pthread.h>
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include<string.h>
+#include 	<string.h>
 #include "datas.h"
 
 // Global variables
@@ -21,10 +21,32 @@ pthread_mutex_t level_car_counter_mutex;
 // initialising the simulation
 bool sim = true;
 
+// car data type to for manager to know car info
+
+typedef struct Car Car_t;
+typedef struct Car
+{
+    int level; // allocated level
+    char LPR[6]; // random LPR number with a space for 0 char
+    clock_t time_in; // entered time
+    clock_t time_out; // exited time
+    struct Car_t *next; // pointer to next car in linked list
+};
+
 // Predefining functions
 
-// hash table allocation
 
+/* Hash Table functions */
+bool htab_init(htab_t *h, size_t n);
+size_t djb_hash(char *s);
+size_t htab_index(htab_t *h, char *key);
+bool htab_add(htab_t *h, char key[7]);
+NP_t *htab_bucket(htab_t *h, char *key)
+NP_t *htab_find(htab_t *h, char *key);
+void htab_destroy(htab_t *h);
+int LPR_to_htab(htab_t *h);
+void item_print(NP_t *i);
+void htab_print(htab_t *h);
 
 /* SHARED MEMORY functions */
 int shared_mem_init_open(shm_CP_t *shm, const char *shm_key);
@@ -33,6 +55,55 @@ int shared_mem_init_open(shm_CP_t *shm, const char *shm_key);
 void *enterFunc(void *enter_num);
 
 /* EXIT functions */
+
+
+//----------------------------------------------------------------------MAIN---------------------------------------------------------------------//
+int main()
+{
+    // opening shared memory
+    const char* key;
+    key = KEY;
+    shared_mem_init_open(&CP, key);
+
+    // initialising has table
+    size_t buckets = 10;
+    if (!htab_init(&h, buckets))
+    {
+        printf("failed to initialise hash table\n");
+        return EXIT_FAILURE;
+    }
+
+    // allocate plates to hash table
+    LPR_to_htab(&h);
+    htab_print(&h); // debug print
+
+
+    // creating linked list to the cars at each level
+
+
+
+    /*
+    printf("SENDING IT.....\n");
+    char LPR[7] = "927KOB";
+    printf("%s \n", LPR);
+
+    memcpy(CP.shm_ptr->Enter[0].LPR_reading, LPR, 6);
+
+    int enter_num = 0;
+
+    pthread_t enter; 
+    pthread_create(&enter,NULL, enterFunc , (void *)&enter_num);
+    sleep(1);
+    pthread_mutex_lock(&CP.shm_ptr->Enter[0].LPR_mutex);
+    pthread_cond_signal(&CP.shm_ptr->Enter[0].LPR_cond);
+    pthread_mutex_unlock(&CP.shm_ptr->Enter[0].LPR_mutex);
+
+    int* ptr;
+    pthread_join(enter, (void**)&ptr);*/
+
+    return EXIT_SUCCESS;
+}
+
 
 
 
@@ -217,17 +288,17 @@ void* enterFunc(void *enter_num)
     Enter_t *entrance = &CP.shm_ptr->Enter[num];
     // initially locking all mutex's for enterance 
     pthread_mutex_lock(&entrance->LPR_mutex);
-    // check if car arrives at entrance gate
     while(1)
     {
         printf("waiting for signal....\n");
-        
+        // checking if there is a number plate in LPR reading
         if(entrance->LPR_reading[0] != 0){
+			// temp variable to store the LPR reading
             char temp_LPR[7];
             // copy the number plate from car arrived at gate
             memcpy(temp_LPR, entrance->LPR_reading, 6);
-            temp_LPR[6] = 0;
-            int level_num = -1;
+            temp_LPR[6] = 0; // last byte set to end character
+            int level_num = -1; // initialising level to be -1 (not allocated yet)
             // check if car is allowed in
             if(htab_find(&h, temp_LPR) != NULL){
                 // find level number and incrementing
@@ -238,10 +309,11 @@ void* enterFunc(void *enter_num)
                     {
                         level_num = i;
                         level_car_counter[i]++;
+                        printf("inserting a car to level %d\n", i); //debug
                         break;
                     }
                 }
-                // check if carpark is full
+                // check if carpark is full (should not happen but incase it does)
                 if(level_num == -1)
                 {
                     printf("Carpark is full idiot!");
@@ -252,6 +324,12 @@ void* enterFunc(void *enter_num)
                 // release level counter mutex 
                 pthread_mutex_unlock(&level_car_counter_mutex);
                 printf("%s inserted into carpark at level %d\n", temp_LPR, level_num);
+                
+                // changing the sign
+                pthread_mutex_lock(&entrance->info_sign_mutex);
+                entrance->info_sign_status = '1' + level_num; // min level is level 1
+                pthread_mutex_unlock(&entrance->info_sign_mutex);
+                pthread_cond_signal(&entrance->info_sign_cond);
 
                 // sending signal to open boom gate 
                 pthread_mutex_lock(&entrance->BOOM_mutex);
@@ -261,12 +339,8 @@ void* enterFunc(void *enter_num)
                 pthread_cond_signal(&entrance->BOOM_cond);
                 // waiting for the gate to open
                 pthread_cond_wait(&entrance->BOOM_cond, &entrance->BOOM_mutex);
-
-                // changing the sign
-                pthread_mutex_lock(&entrance->info_sign_mutex);
-                entrance->info_sign_status = '1' + level_num; // min level is level 1
-                pthread_mutex_unlock(&entrance->info_sign_mutex);
-                pthread_cond_signal(&entrance->info_sign_cond);
+                
+                usleep(20000); // 20ms wait before boomgate closes
 
                 /*
                 // find/ allocate the car to a level
@@ -285,8 +359,8 @@ void* enterFunc(void *enter_num)
                 pthread_cond_signal(&entrance->BOOM_cond);
                 // waiting for the gate to open
                 pthread_cond_wait(&entrance->BOOM_cond, &entrance->BOOM_mutex);
- 
             }
+            
             if(level_num == -1)
             {
                 // changing the sign to be 'X'
@@ -301,7 +375,7 @@ void* enterFunc(void *enter_num)
         pthread_cond_signal(&entrance->LPR_cond);
         // small sleep so we dont clash 
         usleep(10);
-        // waiting for signal from simulator to see if car has arrived
+        // check if car arrives at entrance gate
         pthread_cond_wait(&entrance->LPR_cond, &entrance->LPR_mutex);
     }
     //unlocking all mutex
@@ -312,70 +386,3 @@ void* enterFunc(void *enter_num)
 
 // -----------------------------------------------------Level Function--------------------------------------------------------------------------
 
-// Level routine
-
-void *levelFunc(void *level_num)
-{
-   // get the level we are looking at
-   int num_level = *(int *)level_num;
-   Level_t *level = &CP.shm_ptr->Level[num_level];
-
-   // inital mutex lock
-   pthread_mutex_lock(&level->LPR_mutex);
-
-   while(1)
-   {
-
-
-        pthread_cond_wait(&level->LPR_cond, &level->LPR_mutex);
-   } 
-
-}
-
-// -----------------------------------------------------------------------------------------------------------------MAIN--------------------------------------------------------------------------------------------------------------------------------------------------
-
-int main()
-{
-    // opening shared memory
-    const char* key;
-    key = KEY;
-    shared_mem_init_open(&CP, key);
-
-    // initialising has table
-    size_t buckets = 10;
-    if (!htab_init(&h, buckets))
-    {
-        printf("failed to initialise hash table\n");
-        return EXIT_FAILURE;
-    }
-
-    // allocate plates to hash table
-    LPR_to_htab(&h);
-    htab_print(&h); // debug print
-
-
-    // creating linked list to the cars at each level
-
-
-
-    /*
-    printf("SENDING IT.....\n");
-    char LPR[7] = "927KOB";
-    printf("%s \n", LPR);
-
-    memcpy(CP.shm_ptr->Enter[0].LPR_reading, LPR, 6);
-
-    int enter_num = 0;
-
-    pthread_t enter; 
-    pthread_create(&enter,NULL, enterFunc , (void *)&enter_num);
-    sleep(1);
-    pthread_mutex_lock(&CP.shm_ptr->Enter[0].LPR_mutex);
-    pthread_cond_signal(&CP.shm_ptr->Enter[0].LPR_cond);
-    pthread_mutex_unlock(&CP.shm_ptr->Enter[0].LPR_mutex);
-
-    int* ptr;
-    pthread_join(enter, (void**)&ptr);*/
-
-    return EXIT_SUCCESS;
-}

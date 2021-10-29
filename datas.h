@@ -79,16 +79,6 @@ typedef struct Shm_Carpark {
     CP_t* shm_ptr;
 } shm_CP_t;
 
-// Car data type
-typedef struct Car Car_t;
-typedef struct Car
-{
-    int level;
-    char LPR[6]; // random LPR number with a space for 0 char
-    clock_t time_in; // entered time
-    clock_t time_out; // exited time
-    struct Car_t *next;
-};
 
 // ---------------------------------------------------------Hash table-------------------------------------------------------
 typedef struct NP NP_t;
