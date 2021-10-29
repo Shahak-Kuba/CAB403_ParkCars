@@ -59,6 +59,7 @@ void generateTemperature();
 
 int main()
 {
+    
     pthread_mutex_init(&rand_mutex, NULL);
     printf("Enter F to trigger Creeping Fire Alarm Event\n");
     printf("Enter G to trigger Spike Fire Alarm Event\n");
@@ -67,31 +68,39 @@ int main()
 
     // initializing boom gate status to closed for each level 
     init_gates();
-    
+    /*
     // initialize queue
     q = (queue *) malloc(sizeof(queue));
     initialize(q);
     display(q->front);
-
+    */
     /*********************** INIT THREADS ***********************/
+    /*
     pthread_create(&car_queue_thread, NULL, generate_car_queue, (void*)q);
     printf("final queue:\n");
     display(q->front);
     printf("debug1\n");
     pthread_create(&send_car_thread, NULL, send_car_to_enter, (void *) 0);
     printf("debug2\n");
-
-    /*
+    */
+    
     //main loop
     for (;;) {
+        /*
         if (fgetc(stdin) == 'f') {
             printf("Increasing Temperature Over Time");
             fireState = 1;
-        } else if (fgetc(stdin) == 'g') {
+        }
+        if (fgetc(stdin) == 'g') {
             printf("Increasing Temperature Instantly");
             fireState = 2;
         }
-    }*/
+        */
+       fireState = 0;
+
+        generateTemperature();
+        usleep(100000);
+    }
     
 
     return(EXIT_SUCCESS);
@@ -345,7 +354,7 @@ void init_gates()
 }
 
 /* ----------------------------------------------Fire sensor functions----------------------------------------------------*/
-/*
+
 void generateTemperature() {
     for (int i = 0; i < NUM_LEVELS; i++) {
         pthread_mutex_lock(&rand_mutex);
@@ -368,5 +377,8 @@ void generateTemperature() {
             CP.shm_ptr->Level[i].temp_sensor = BaseTemp + (tempNoise*randScalar); // -3 - +3 higher or lower than base temp
             break;
         }
+
+        //print to console
+        printf("Level %d Temperature: %d\n", i, CP.shm_ptr->Level[i].temp_sensor);
     }
-}*/
+}

@@ -72,44 +72,107 @@ int16_t get_median(int16_t array[] , int n)
     return median;
 }
 
+void tempmonitor(int level) {
+    int mediantemp = 0;
+    int16_t temp = 0;
+    int16_t buffer[MEDIAN_WINDOW];
+    
+    temp = shm.shm_ptr->Level[level].temp_sensor; //take value currently stored in temp
+
+    //move new reading into first 5 elements of array for mean to be calculated
+    for(int i = MEDIAN_WINDOW; i > 0; i--) {
+        tempArray[level][i] = tempArray[level][i-1];      
+    }
+    tempArray[level][0] = temp;
+
+    for (int i = 0; i < MEDIAN_WINDOW; i++) {
+        buffer[i] = tempArray[level][i];
+    }
+
+    sort(buffer, MEDIAN_WINDOW);
+    mediantemp = get_median(buffer,MEDIAN_WINDOW);
+
+    for(int i = TEMPCHANGE_WINDOW + MEDIAN_WINDOW-1; i >= MEDIAN_WINDOW; i--) {
+        tempArray[level][i] = tempArray[level][i-1];     
+    }
+    tempArray[level][MEDIAN_WINDOW] = mediantemp;
+    
+    printf("Temp Memory Block:\n");
+        for (int x = 0; x < LEVELS; x++) {
+            for (int y = 0; y < TEMPCHANGE_WINDOW + MEDIAN_WINDOW; y++) {
+                printf("%d ", tempArray[x][y]);
+                if (y == 4) {
+                    printf(" | ");
+                }
+            }
+            printf("\n");
+        }
+    printf("\n");
+
+    usleep(20000);
+}
+
+/*
 void tempmonitor(int level)
 {
+    int hightemps = 0;
+    int16_t temp = 0;
 
-	int count, mediantemp, hightemps;
-    int16_t temp;
-
-    //Level_t *levels = shm->shm_ptr->Level;
-    //temp = &levels[level].temp_sensor;
     temp = shm.shm_ptr->Level[level].temp_sensor;
-    count = tempArrayIndex[level];
+    //printf("Level %d has value: %d\n",level, temp);
+    //count = tempArrayIndex[level];
 
-    if(count != 5){
+    if(count != MEDIAN_WINDOW * LEVELS){
         tempArray[level][count] = temp;
         count++;
     }
     else 
     {
+
+        
         count = 0;
-        hightemps = 0;
+
+        //for (int i = 0; i < MEDIAN_WINDOW; i++) {
+        //    printf("%d ",tempArray[level][i]);
+        //}
+        //printf("\n");
 
         sort(tempArray[level], MEDIAN_WINDOW);
-        mediantemp = get_median(tempArray[level], MEDIAN_WINDOW);
         
+        mediantemp = tempArray[level][2];
+        //mediantemp = get_median(tempArray[level], MEDIAN_WINDOW);
+        //printf("Median Temp: %d\n",mediantemp);
+        
+        tempArray[level][MEDIAN_WINDOW] = mediantemp;
+
         // Iterate through array (backwards) and push each value along one (dropping the last), 
         // while counting the number of hightemps
-        for(int i = TEMPCHANGE_WINDOW + MEDIAN_WINDOW; i > MEDIAN_WINDOW; i--)
+        printf("Temp Memory Block:\n");
+        for (int x = 0; x < LEVELS; x++) {
+            for (int y = 0; y < TEMPCHANGE_WINDOW + MEDIAN_WINDOW; y++) {
+                printf("%d ", tempArray[x][y]);
+            }
+            printf("\n");
+        }
+        printf("\n");
+
+        for(int i = TEMPCHANGE_WINDOW + MEDIAN_WINDOW-1; i >= MEDIAN_WINDOW; i--)
         {
+            tempArray[level][i] = tempArray[level][i-1];
             // Temperatures of 58 degrees and higher are a concern
+            //printf("%d\n", tempArray[level][i]);
             if(tempArray[level][i] >= 58)
             {
+                printf("High Temperature: %d\n",tempArray[level][i]);
                 hightemps++;
             }
         }
         // replace duplicate value (which has already been moved to MEDIAN_WINDOW+1)
-        tempArray[level][MEDIAN_WINDOW] = mediantemp;
+        
 
         // If 90% of the last 30 temperatures are >= 58 degrees,
         // this is considered a high temperature. Raise the alarm
+        //printf("High Temp: %d\n", hightemps);
         if (hightemps >= TEMPCHANGE_WINDOW * 0.9)
         {
             alarm_active = 1;
@@ -117,14 +180,15 @@ void tempmonitor(int level)
         // If the newest temp is >= 8 degrees higher than the oldest
         // temp (out of the last 30), this is a high rate-of-rise.
         // Raise the alarm
-        if (tempArray[level][MEDIAN_WINDOW] - tempArray[level][TEMPCHANGE_WINDOW] >= 8)
-        {
-            alarm_active = 1;
-        }        
+      //  if (tempArray[level][MEDIAN_WINDOW] - tempArray[level][TEMPCHANGE_WINDOW] >= 8)
+       // {
+       //     alarm_active = 1;
+       // }        
 
     }
     usleep(2000);	
 }
+*/
 
 int shared_mem_init_open(shm_CP_t* shm, const char *shm_key)
 {   
@@ -168,7 +232,7 @@ int main(void)
 
     while(alarm_active == 0)
     {
-        for (int lvl = 0; lvl <= LEVELS; lvl++) 
+        for (int lvl = 0; lvl < LEVELS; lvl++) 
         {
             tempmonitor(lvl); 
         }
