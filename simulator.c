@@ -153,7 +153,18 @@ void clear_memory( shm_CP_t* shm ) {
 
 /* ----------------------------------------------car simulation functions----------------------------------------------------*/
 
-            fseek(file_ptr,0,SEEK_END);
+void LPR_generator(char LPR[LPRSZ+1]) {
+    pthread_mutex_lock(&rand_mutex);
+    if (rand() % 100 <= car_list_chance) {
+        //Use car from plates.txt
+        //Measure Number of plates in file.
+        FILE* file_ptr = fopen("plates.txt","r");
+        fseek(file_ptr,0,SEEK_END);
+        int file_plate_count = ftell(file_ptr) / (LPRSZ+1); //assumes all plates are 6 chars long
+        //Take Random Plate from file
+        fseek(file_ptr,(rand() % file_plate_count)*(LPRSZ+1),SEEK_SET);
+        fgets(LPR,LPRSZ+1,file_ptr);
+        fclose(file_ptr);
 
             if(linecount == file_plate_count)
             {
