@@ -94,7 +94,7 @@ int main()
         LPR_generator(LPR);
         printf("%s\n",LPR);
     }
-    */
+    
     //main loop
     for (;;) {
         if (fgetc(stdin) == 'f') {
@@ -352,8 +352,6 @@ void init_gates()
 
 }
 
-
-    while(1)
 /* ----------------------------------------------Fire sensor functions----------------------------------------------------*/
 void generateTemperature() {
     for (int i = 0; i < NUM_LEVELS; i++) {
