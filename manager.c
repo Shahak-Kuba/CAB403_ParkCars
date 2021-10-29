@@ -7,7 +7,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include 	<string.h>
+#include <string.h>
 #include "datas.h"
 
 // Global variables
@@ -287,6 +287,7 @@ void* enterFunc(void *enter_num)
     int num = *(int *)enter_num;
     Enter_t *entrance = &CP.shm_ptr->Enter[num];
     // initially locking all mutex's for enterance 
+    printf("locking lpr");
     pthread_mutex_lock(&entrance->LPR_mutex);
     while(1)
     {

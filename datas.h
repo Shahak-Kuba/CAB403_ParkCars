@@ -95,4 +95,11 @@ struct htab
   size_t size;  
 };
 
-
+// ---------------------------------------------------------Queue-------------------------------------------------------
+typedef struct queue queue;
+struct queue
+{
+    int count;
+    NP_t *front;
+    NP_t *rear;
+};
