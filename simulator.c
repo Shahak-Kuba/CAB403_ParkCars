@@ -10,7 +10,7 @@
 #include <string.h>
 #include "datas.h"
 
-int car_list_chance = 50;
+int car_list_chance = 100;
 
 shm_CP_t CP;
 pthread_mutex_t rand_mutex;
@@ -156,13 +156,15 @@ void clear_memory( shm_CP_t* shm ) {
 void LPR_generator(char LPR[LPRSZ+1]) {
     pthread_mutex_lock(&rand_mutex);
     if (rand() % 100 <= car_list_chance) {
+        
         //Use car from plates.txt
         //Measure Number of plates in file.
         FILE* file_ptr = fopen("plates.txt","r");
         fseek(file_ptr,0,SEEK_END);
-        int file_plate_count = ftell(file_ptr) / (LPRSZ+1); //assumes all plates are 6 chars long
+        // getting size of file in lines
+        int file_plate_count = ftell(file_ptr) / (LPRSZ + 2); //assumes all plates are 6 chars long
         //Take Random Plate from file
-        fseek(file_ptr,(rand() % file_plate_count)*(LPRSZ+1),SEEK_SET);
+        fseek(file_ptr,(rand() % file_plate_count)*(LPRSZ+2),SEEK_SET);
         fgets(LPR,LPRSZ+1,file_ptr);
         fclose(file_ptr);
 
@@ -170,7 +172,7 @@ void LPR_generator(char LPR[LPRSZ+1]) {
             {
                 linecount = 0;
             }
-
+        
         } else {
         //Generate random car plate
         for(int i = 0; i < LPRSZ; i++) {
@@ -353,6 +355,7 @@ void init_gates()
 }
 
 /* ----------------------------------------------Fire sensor functions----------------------------------------------------*/
+/*
 void generateTemperature() {
     for (int i = 0; i < NUM_LEVELS; i++) {
         pthread_mutex_lock(&rand_mutex);
@@ -377,4 +380,4 @@ void generateTemperature() {
             break;
         }
     }
-}
+}*/
