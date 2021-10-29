@@ -355,7 +355,7 @@ void init_gates()
 }
 
 /* ----------------------------------------------Fire sensor functions----------------------------------------------------*/
-/*
+
 void generateTemperature() {
     for (int i = 0; i < NUM_LEVELS; i++) {
         pthread_mutex_lock(&rand_mutex);
@@ -366,18 +366,17 @@ void generateTemperature() {
         switch(fireState) {
         case 1: //Creep Event (Rising Average)
                 BaseTemp++;
-            }
-            CP.shm_ptr->Level[i]->temp_sensor = BaseTemp + tempNoise;
-            break;
+                CP.shm_ptr->Level[i].temp_sensor = BaseTemp + tempNoise;
+                break;
 
         case 2: //Spike Event (Jump to temps > 58)
-            CP.shm_ptr->Level[i]->temp_sensor = 60;
+            CP.shm_ptr->Level[i].temp_sensor = 60;
             break;
 
         default: //Normal Operation
             BaseTemp = 30;
-            CP.shm_ptr->Level[i]->temp_sensor = BaseTemp + (tempNoise*randScalar); // -3 - +3 higher or lower than base temp
+            CP.shm_ptr->Level[i].temp_sensor = BaseTemp + (tempNoise*randScalar); // -3 - +3 higher or lower than base temp
             break;
         }
     }
-}*/
+}
