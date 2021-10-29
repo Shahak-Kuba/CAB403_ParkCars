@@ -15,7 +15,7 @@
 #define LPRSZ 6
 #define LEVEL_CAPACITY 20
 #define LPFILE "plates.txt"
-#define QUEUE_LENGTH 15
+#define QUEUE_LENGTH 10
 
 
 // Struct for Entrance

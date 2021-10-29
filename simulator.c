@@ -29,12 +29,15 @@ void *send_car_to_enter(void *enter_num); // sends a car from que to entrance (5
 void *generate_car_queue(void *arg); // function that will fill a linked list of cars waiting for a 
 
 // queue thread
+queue *q;
 pthread_t car_queue_thread;
 pthread_mutex_t car_queue_mutex;
 pthread_cond_t car_queue_cond;
 
+// send car threads
+pthread_t send_car_thread;
+
 // car queue functions
-queue *q;
 void initialize(queue *q);
 int isempty(queue *q);
 void enqueue(queue *q, char LP[7]);
@@ -65,36 +68,19 @@ int main()
     init_gates();
     
     // initialize queue
-    q = malloc(sizeof(queue));
+    q = (queue *) malloc(sizeof(queue));
     initialize(q);
-
+    display(q->front);
 
     /*********************** INIT THREADS ***********************/
     pthread_create(&car_queue_thread, NULL, generate_car_queue, (void*)q);
-   // pthread_t entrances[NUM_ENTERS];
-    // replace 1 with NUM_LEVELS
+    printf("final queue:\n");
+    display(q->front);
+    printf("debug1\n");
+    pthread_create(&send_car_thread, NULL, send_car_to_enter, (void *) 0);
+    printf("debug2\n");
+
     /*
-    for(int i = 0; i < 1; i++ )
-    {
-        pthread_create(&entrances[i], NULL, send_car_to_enter, (void *)&i  );
-        //pthread_create(&entrances[i], NULL, toggleGate, (void *)&i);
-        
-    }*/
-
-    pthread_join(car_queue_thread, (void*) 0);
-    
-    
-    
-
-    // Allocate space for LPR
-    char LPR[LPRSZ+1];
-    LPR[6] = 0; // termination char
-    for(int i = 0; i < 10; i++)
-    {
-        LPR_generator(LPR);
-        printf("%s\n",LPR);
-    }
-    
     //main loop
     for (;;) {
         if (fgetc(stdin) == 'f') {
@@ -104,7 +90,8 @@ int main()
             printf("Increasing Temperature Instantly");
             fireState = 2;
         }
-    }
+    }*/
+    
 
     return(EXIT_SUCCESS);
 }
@@ -183,6 +170,7 @@ void LPR_generator(char LPR[LPRSZ+1]) {
             }
         }
     }    
+    LPR[6] = 0;
     pthread_mutex_unlock(&rand_mutex);
 }
 
@@ -200,7 +188,6 @@ void *send_car_to_enter(void *enter_num)
     while(1)
     {
         // get LP from queue
-
         memcpy(entrance->LPR_reading, dequeue(q), 6);
 
         // send signal to &entrance->LPR_cond
@@ -218,13 +205,14 @@ void *send_car_to_enter(void *enter_num)
 
 void *generate_car_queue(void* arg)
 {
+    queue *q = (queue *) arg;
     pthread_mutex_lock(&car_queue_mutex);
     while(1)
     {
         while(q->count < QUEUE_LENGTH)
         {
             // add another car to queue
-            static char LPlate[7];
+            char LPlate[7];
             LPR_generator(LPlate);
             
             //enqueue car
@@ -255,15 +243,17 @@ void enqueue(queue *q, char LP[7])
     {
         NP_t *tmp;
         tmp = malloc(sizeof(NP_t));
-        memcpy(tmp->number_plate,LP, 6);
+        memcpy(tmp->number_plate,LP, 7);
         tmp->next = NULL;
         if(!isempty(q))
         {
+            //printf("que is not empty\n");
             q->rear->next = tmp;
             q->rear = tmp;
         }
         else
         {
+            //printf("queue is empty\n");
             q->front = q->rear = tmp;
         }
         q->count++;
@@ -279,9 +269,8 @@ void enqueue(queue *q, char LP[7])
 char * dequeue(queue *q)
 {
     NP_t *tmp;
-    char *number_plate = malloc(7);
-    memcpy(number_plate, q->front->number_plate, 6);
-    number_plate[6] = 0;
+    char *number_plate = (char *) malloc(7);
+    memcpy(number_plate, q->front->number_plate, 7);
     tmp = q->front;
     q->front = q->front->next;
     q->count--;
@@ -297,7 +286,7 @@ void display(NP_t *head)
     }
     else
     {
-        printf("%s\n", head -> number_plate);
+        printf("%s -> ", head -> number_plate);
         display(head->next);
     }
 }
@@ -355,7 +344,7 @@ void init_gates()
 }
 
 /* ----------------------------------------------Fire sensor functions----------------------------------------------------*/
-
+/*
 void generateTemperature() {
     for (int i = 0; i < NUM_LEVELS; i++) {
         pthread_mutex_lock(&rand_mutex);
@@ -365,9 +354,9 @@ void generateTemperature() {
 
         switch(fireState) {
         case 1: //Creep Event (Rising Average)
-                BaseTemp++;
-                CP.shm_ptr->Level[i].temp_sensor = BaseTemp + tempNoise;
-                break;
+            BaseTemp++;
+            CP.shm_ptr->Level[i].temp_sensor = BaseTemp + tempNoise;
+            break;
 
         case 2: //Spike Event (Jump to temps > 58)
             CP.shm_ptr->Level[i].temp_sensor = 60;
@@ -379,4 +368,4 @@ void generateTemperature() {
             break;
         }
     }
-}
+}*/
