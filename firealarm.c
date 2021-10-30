@@ -201,20 +201,25 @@ int main(void)
 	
 	// Show evacuation message on an endless loop
 	for (;;) {
-        /*
+        
 		char *evacmessage = "EVACUATE ";
 		for (char *p = evacmessage; *p != '\0'; p++) {
-			for (int i = 0; i < ENTRANCES; i++) {
-				int addr = 288 * i + 192;
-				volatile struct parkingsign *sign = &shm + addr;
-				pthread_mutex_lock(&sign->m);
-				sign->display = *p;
-				pthread_cond_broadcast(&sign->c);
-				pthread_mutex_unlock(&sign->m);
-			}
+            char letter = (char)p[0];
+            //printf("%c\n",letter);
+            for (int i = 0; i < ENTRANCES; i++) {
+                shm.shm_ptr->Enter[i].info_sign_status = letter;
+            }
+			//for (int i = 0; i < ENTRANCES; i++) {
+			//	int addr = 288 * i + 192;
+			//	volatile struct parkingsign *sign = &shm + addr;
+			//	pthread_mutex_lock(&sign->m);
+			//	sign->display = *p;
+			//	pthread_cond_broadcast(&sign->c);
+			//	pthread_mutex_unlock(&sign->m);
+			//}
 			usleep(20000);
 		}
-        */
+        
 	}
 
     return EXIT_SUCCESS;
