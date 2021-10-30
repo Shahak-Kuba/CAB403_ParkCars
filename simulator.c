@@ -55,7 +55,9 @@ void init_gates();
 /* fire sensor simulation functions */
 int fireState = 0; //0 normal operation, 1 for creep & 2 for spike
 int16_t BaseTemp;
+int stepCount = 0; //Keep track of how many temperatures generated before increasing over time
 void generateTemperature();
+pthread_t temperature_thread;
 
 int main()
 {
@@ -84,22 +86,19 @@ int main()
     printf("debug2\n");
     */
     
+    pthread_create(&temperature_thread, NULL, (void*)generateTemperature, NULL);
+
     //main loop
     for (;;) {
-        /*
-        if (fgetc(stdin) == 'f') {
-            printf("Increasing Temperature Over Time");
+        int charinput = 0;
+        charinput = fgetc(stdin);
+        if (charinput == 'f') {
+            printf("\nIncreasing Temperature Over Time\n\n");
             fireState = 1;
-        }
-        if (fgetc(stdin) == 'g') {
-            printf("Increasing Temperature Instantly");
+        } else if (charinput == 'g') {
+            printf("\nIncreasing Temperature Instantly\n\n");
             fireState = 2;
         }
-        */
-       fireState = 0;
-
-        generateTemperature();
-        usleep(100000);
     }
     
 
@@ -356,29 +355,46 @@ void init_gates()
 /* ----------------------------------------------Fire sensor functions----------------------------------------------------*/
 
 void generateTemperature() {
-    for (int i = 0; i < NUM_LEVELS; i++) {
-        pthread_mutex_lock(&rand_mutex);
-        int16_t tempNoise = ((rand()%2)*2)-1; //sets tempNoise to be -1 or +1;
-        int16_t randScalar = rand()%4;
-        pthread_mutex_unlock(&rand_mutex);
+    while(true) {
+        for (int i = 0; i < NUM_LEVELS; i++) {
+            pthread_mutex_lock(&rand_mutex);
+            int16_t tempNoise = ((rand()%2)*2)-1; //sets tempNoise to be -1 or +1;
+            int16_t randScalar = rand()%4;
+            pthread_mutex_unlock(&rand_mutex);
 
-        switch(fireState) {
-        case 1: //Creep Event (Rising Average)
-            BaseTemp++;
-            CP.shm_ptr->Level[i].temp_sensor = BaseTemp + tempNoise;
-            break;
+            switch(fireState) {
+            case 1: //Creep Event (Rising Average)              
+                CP.shm_ptr->Level[i].temp_sensor = BaseTemp + tempNoise;
+                if (i == NUM_LEVELS-1) {
+                    stepCount++;
+                }
+                if (stepCount == 2) {
+                    stepCount = 0;
+                    BaseTemp++;
+                }
+                break;
 
-        case 2: //Spike Event (Jump to temps > 58)
-            CP.shm_ptr->Level[i].temp_sensor = 60;
-            break;
+            case 2: //Spike Event (90% temps >= 58) (needs to slowly climb to prevent triggering other condition)
+                CP.shm_ptr->Level[i].temp_sensor = BaseTemp + tempNoise;
+                if (i == NUM_LEVELS-1) {
+                    stepCount++;
+                }
+                if (stepCount == 50 && BaseTemp != 60) {
+                    stepCount = 0;
+                    BaseTemp++;
+                }
+                break;
 
-        default: //Normal Operation
-            BaseTemp = 30;
-            CP.shm_ptr->Level[i].temp_sensor = BaseTemp + (tempNoise*randScalar); // -3 - +3 higher or lower than base temp
-            break;
+            default: //Normal Operation
+                BaseTemp = 30;
+                CP.shm_ptr->Level[i].temp_sensor = BaseTemp + (tempNoise*randScalar); // -3 - +3 higher or lower than base temp
+                break;
+            }
+
+            //print to console
+            printf("L%d: %d ", i, CP.shm_ptr->Level[i].temp_sensor);
         }
-
-        //print to console
-        printf("Level %d Temperature: %d\n", i, CP.shm_ptr->Level[i].temp_sensor);
+        printf("\n");
+        usleep(2000);
     }
 }
