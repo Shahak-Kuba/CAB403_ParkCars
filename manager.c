@@ -36,6 +36,8 @@ typedef struct Car
 
 // Predefining functions
 
+void Assignment_Sleep(int time_in_milli_sec);
+
 /* Hash Table functions */
 bool htab_init(htab_t *h, size_t n);
 size_t djb_hash(char *s);
@@ -82,12 +84,12 @@ int main()
 
 
 
-    
+   /* 
     printf("SENDING IT.....\n");
     char LPR[7] = "927KOB";
     printf("%s \n", LPR);
 
-    memcpy(CP.shm_ptr->Enter[0].LPR_reading, LPR, 6);
+    memcpy(CP.shm_ptr->Enter[0].LPR_reading, LPR, 6); */
 
     int enter_num = 0;
 
@@ -108,6 +110,13 @@ int main()
 
 
 // Functions
+
+
+void Assignment_Sleep(int time_in_milli_sec)
+{
+    int time = time_in_milli_sec * 1000;
+    usleep(time);
+}
 
 // -----------------------------------------------------Shared Memory Function--------------------------------------------------------------------------
 
@@ -287,13 +296,13 @@ void* enterFunc(void *enter_num)
     int num = *(int *)enter_num;
     Enter_t *entrance = &CP.shm_ptr->Enter[num];
     // initially locking all mutex's for enterance 
-    printf("locking lpr");
+    printf("intial lock lpr\n");
     pthread_mutex_lock(&entrance->LPR_mutex);
     while(1)
     {
-        printf("waiting for signal....\n");
         // checking if there is a number plate in LPR reading
         if(entrance->LPR_reading[0] != 0){
+            printf("car at the entrance\n");
 			// temp variable to store the LPR reading
             char temp_LPR[7];
             // copy the number plate from car arrived at gate
@@ -320,10 +329,9 @@ void* enterFunc(void *enter_num)
                     printf("Carpark is full idiot!");
                     break;
                 }
-
-
                 // release level counter mutex 
                 pthread_mutex_unlock(&level_car_counter_mutex);
+
                 // checking cars are going to the right level
                 printf("%s inserted into carpark at level %d\n", temp_LPR, level_num);
                 printf("number of cars in a each level: \n" );
@@ -332,48 +340,58 @@ void* enterFunc(void *enter_num)
                     printf("Level %d: %d \n",i+1, level_car_counter[i]);
                 }
                 
-                // changing the sign
-                pthread_mutex_lock(&entrance->info_sign_mutex);
-                entrance->info_sign_status = '1' + level_num; // min level is level 1
-                pthread_mutex_unlock(&entrance->info_sign_mutex);
-                pthread_cond_signal(&entrance->info_sign_cond);
 
                 // sending signal to open boom gate 
                 pthread_mutex_lock(&entrance->BOOM_mutex);
                 entrance->BOOM_status = 'R';
                 pthread_mutex_unlock(&entrance->BOOM_mutex);
                 // sending signal to simulator boom
-                pthread_cond_signal(&entrance->BOOM_cond);
+                printf("sending signal to BOOM GATE\n");
+                //pthread_cond_signal(&entrance->BOOM_cond);
+                printf("signal sent\n");
                 // waiting for the gate to open
-                pthread_cond_wait(&entrance->BOOM_cond, &entrance->BOOM_mutex);
+                pthread_mutex_lock(&entrance->BOOM_mutex); // locks mutex
+                pthread_cond_wait(&entrance->BOOM_cond, &entrance->BOOM_mutex); // unlocks and mutex and wait
+                printf("boom gate status: %c\n", entrance->BOOM_status);
+
+                // changing the sign / sending signal to navigate car in
+                pthread_mutex_lock(&entrance->info_sign_mutex);
+                entrance->info_sign_status = '1' + level_num; // min level is level 1
+                printf("sign is %c\n", entrance->info_sign_status);
+                pthread_mutex_unlock(&entrance->info_sign_mutex);
+                printf("sending signal to info sign\n");
+                pthread_cond_signal(&entrance->info_sign_cond);
                 
                 usleep(20000); // 20ms wait before boomgate closes
 
                 // sending signal to lower boom gate
-                pthread_mutex_lock(&entrance->BOOM_mutex);
                 entrance->BOOM_status = 'L';
                 pthread_mutex_unlock(&entrance->BOOM_mutex);
                 // sending signal to simulator boom
                 pthread_cond_signal(&entrance->BOOM_cond);
                 // waiting for the gate to open
+                pthread_mutex_lock(&entrance->BOOM_mutex);
                 pthread_cond_wait(&entrance->BOOM_cond, &entrance->BOOM_mutex);
             }
-            
+            printf("level_num = %d\n",level_num);
+            // if there is a car but it is not allowed in 
             if(level_num == -1)
             {
                 // changing the sign to be 'X'
                 pthread_mutex_lock(&entrance->info_sign_mutex);
                 entrance->info_sign_status = 'X';
+                pthread_mutex_unlock(&entrance->info_sign_mutex);
+                printf("sign is %c\n", entrance->info_sign_status);
+                printf("sending signal to info sign\n");
                 pthread_cond_signal(&entrance->info_sign_cond);
             }
         }
-        //removing the car from entrance
-        entrance->LPR_reading[0] = 0;
         // signal to let simulator know the entrance is empty
-        pthread_cond_signal(&entrance->LPR_cond);
+        // pthread_cond_signal(&entrance->LPR_cond);
         // small sleep so we dont clash 
         usleep(10);
         // check if car arrives at entrance gate
+        printf("waiting for sim signal");
         pthread_cond_wait(&entrance->LPR_cond, &entrance->LPR_mutex);
     }
     //unlocking all mutex
