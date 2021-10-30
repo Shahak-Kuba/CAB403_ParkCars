@@ -379,7 +379,7 @@ void generateTemperature() {
                 if (i == NUM_LEVELS-1) {
                     stepCount++;
                 }
-                if (stepCount == 50 && BaseTemp != 60) {
+                if (stepCount == 10 && BaseTemp != 60) { //10 steps should be max of 5 degree climb across samples (no trigger over climb)
                     stepCount = 0;
                     BaseTemp++;
                 }
@@ -392,9 +392,9 @@ void generateTemperature() {
             }
 
             //print to console
-            printf("L%d: %d ", i, CP.shm_ptr->Level[i].temp_sensor);
+            //printf("L%d: %d ", i, CP.shm_ptr->Level[i].temp_sensor);
         }
-        printf("\n");
+        //printf("\n");
         usleep(2000);
     }
 }

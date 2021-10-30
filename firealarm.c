@@ -118,9 +118,6 @@ void tempmonitor(int level) {
     if (tempArray[level][MEDIAN_WINDOW] - tempArray[level][TEMPCHANGE_WINDOW+MEDIAN_WINDOW-1] >= 8 && tempArray[level][TEMPCHANGE_WINDOW+MEDIAN_WINDOW-1] != 0) {
         alarm_active = 1;
     }
-    
-    //sleep
-    usleep(2000);
 }
 
 /* Dummy Function For Spitting Out Temperatures To Console....
@@ -186,29 +183,48 @@ int main(void)
         {
             tempmonitor(lvl); 
         }
-        usleep(1000);
+        //sleep
+        usleep(2000); //wait 2ms between next reading
     }
 	
-	
+	//alarm flag true, raise alarm:
 	fprintf(stderr, "*** ALARM ACTIVE ***\n");
 	
 	// Handle the alarm system and open boom gates
 	// Activate alarms on all levels
-
+    for (int i = 0; i < LEVELS; i++) {
+        pthread_mutex_lock(&shm.shm_ptr->Level[i].LPR_mutex); //lock level
+        shm.shm_ptr->Level[i].fire_alarm = (char)1; //set alarm flag
+        pthread_cond_broadcast(&shm.shm_ptr->Level[i].LPR_cond); //send condition
+        pthread_mutex_unlock(&shm.shm_ptr->Level[i].LPR_mutex); //unlock level
+    }
 	
 	// Open up all boom gates
-	
+	for (int i = 0; i < EXITS; i++) {
+        char gateState = shm.shm_ptr->Exit[i].BOOM_status;
+        if (gateState == 'C') {
+            pthread_mutex_lock(&shm.shm_ptr->Exit[i].BOOM_mutex); //lock exit
+            shm.shm_ptr->Exit[i].BOOM_status = 'R'; //set gate to raise
+            pthread_cond_broadcast(&shm.shm_ptr->Exit[i].BOOM_cond); //send condition
+            pthread_mutex_unlock(&shm.shm_ptr->Exit[i].BOOM_mutex); //unlock exit
+        }
+    }
 	
 	// Show evacuation message on an endless loop
+    char *evacmessage = "EVACUATE ";
 	for (;;) {
-        
-		char *evacmessage = "EVACUATE ";
 		for (char *p = evacmessage; *p != '\0'; p++) {
             char letter = (char)p[0];
             //printf("%c\n",letter);
+
+            //Display Evacuate on Entrace Signs
             for (int i = 0; i < ENTRANCES; i++) {
-                shm.shm_ptr->Enter[i].info_sign_status = letter;
+                pthread_mutex_lock(&shm.shm_ptr->Enter[i].info_sign_mutex); //lock entrance
+                shm.shm_ptr->Enter[i].info_sign_status = letter; //set sign character
+                pthread_cond_broadcast(&shm.shm_ptr->Enter[i].info_sign_cond); //send condition
+                pthread_mutex_unlock(&shm.shm_ptr->Enter[i].info_sign_mutex); //unlock level mutex
             }
+
 			//for (int i = 0; i < ENTRANCES; i++) {
 			//	int addr = 288 * i + 192;
 			//	volatile struct parkingsign *sign = &shm + addr;
@@ -217,10 +233,8 @@ int main(void)
 			//	pthread_cond_broadcast(&sign->c);
 			//	pthread_mutex_unlock(&sign->m);
 			//}
-			usleep(20000);
+			usleep(20000); //sleep for 20ms between letters
 		}
-        
 	}
-
     return EXIT_SUCCESS;
 }
