@@ -343,35 +343,34 @@ void* enterFunc(void *enter_num)
 
                 // sending signal to open boom gate 
                 pthread_mutex_lock(&entrance->BOOM_mutex);
+                printf("BOOM locked\n");
                 entrance->BOOM_status = 'R';
                 pthread_mutex_unlock(&entrance->BOOM_mutex);
+                printf("BOOM unlocked\n");
                 // sending signal to simulator boom
                 printf("sending signal to BOOM GATE\n");
-                //pthread_cond_signal(&entrance->BOOM_cond);
+                pthread_cond_signal(&entrance->BOOM_cond);
                 printf("signal sent\n");
-                // waiting for the gate to open
-                pthread_mutex_lock(&entrance->BOOM_mutex); // locks mutex
+                // waiting then locking
                 pthread_cond_wait(&entrance->BOOM_cond, &entrance->BOOM_mutex); // unlocks and mutex and wait
-                printf("boom gate status: %c\n", entrance->BOOM_status);
+                printf("current boom gate status: %c\n", entrance->BOOM_status);
 
-                // changing the sign / sending signal to navigate car in
+                /*// changing the sign / sending signal to navigate car in
                 pthread_mutex_lock(&entrance->info_sign_mutex);
                 entrance->info_sign_status = '1' + level_num; // min level is level 1
                 printf("sign is %c\n", entrance->info_sign_status);
                 pthread_mutex_unlock(&entrance->info_sign_mutex);
                 printf("sending signal to info sign\n");
-                pthread_cond_signal(&entrance->info_sign_cond);
+                pthread_cond_signal(&entrance->info_sign_cond);*/
                 
-                usleep(20000); // 20ms wait before boomgate closes
+                //Assignment_Sleep(20); // 20ms wait before boomgate closes
 
-                // sending signal to lower boom gate
-                entrance->BOOM_status = 'L';
-                pthread_mutex_unlock(&entrance->BOOM_mutex);
-                // sending signal to simulator boom
-                pthread_cond_signal(&entrance->BOOM_cond);
-                // waiting for the gate to open
-                pthread_mutex_lock(&entrance->BOOM_mutex);
-                pthread_cond_wait(&entrance->BOOM_cond, &entrance->BOOM_mutex);
+                for(int i = 0; i < 5; i++)
+                {
+                    printf("slept for %d sec\n", i+1);
+                    sleep(1);
+                }
+
             }
             printf("level_num = %d\n",level_num);
             // if there is a car but it is not allowed in 
@@ -391,7 +390,7 @@ void* enterFunc(void *enter_num)
         // small sleep so we dont clash 
         usleep(10);
         // check if car arrives at entrance gate
-        printf("waiting for sim signal");
+        printf("waiting for sim signal for another car\n");
         pthread_cond_wait(&entrance->LPR_cond, &entrance->LPR_mutex);
     }
     //unlocking all mutex

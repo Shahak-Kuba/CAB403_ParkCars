@@ -393,6 +393,8 @@ void *toggleGate(void* entrance_no_ptr) {
         {
             // change
             printf("gate opened.\n");
+            pthread_mutex_lock(&entrance->BOOM_mutex);
+            printf("BOOM locked\n");
             entrance->BOOM_status = 'O';
 
         }
@@ -401,26 +403,27 @@ void *toggleGate(void* entrance_no_ptr) {
         {
             // change
             printf("gate closed.\n");
+            pthread_mutex_lock(&entrance->BOOM_mutex);
+            printf("BOOM locked\n");
             entrance->BOOM_status = 'C';
         }
-        else
-        {
-            printf("boom status = %c\n", entrance->BOOM_status);
-            printf("sum ting wong\n");
-        }
+
         pthread_mutex_unlock(&entrance->BOOM_mutex);
+        printf("BOOM unlocked\n");
 
 
         // other signal
-        pthread_cond_signal(&entrance->info_sign_cond);
+        //pthread_cond_signal(&entrance->info_sign_cond);
 
-        pthread_cond_signal(&entrance->BOOM_cond);
+        printf("sending signal with boom gate %c\n", entrance->BOOM_status);
+        pthread_cond_signal(&entrance->BOOM_cond);  
+        printf("signal sent\n");
 
         // waiting for next boom signal to be sent
         pthread_mutex_lock(&entrance->BOOM_mutex); // locking so we can unlock with wait
         printf("BOOM mutex unlocked and waiting for signal\n");
         pthread_cond_wait(&entrance->BOOM_cond, &entrance->BOOM_mutex);
-        printf("recieved signal");
+        printf("recieved signal\n");
     }
     pthread_mutex_unlock(&entrance->BOOM_mutex);
 }
