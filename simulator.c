@@ -56,9 +56,15 @@ void *toggleGate(void *arg);
 void init_gates();
 
 /* fire sensor simulation functions */
+pthread_t temperature_thread;
 int fireState = 0; //0 normal operation, 1 for creep & 2 for spike
 int16_t BaseTemp;
 void generateTemperature();
+void fire_alarms_active();
+
+/* input thread */
+pthread_t input_thread;
+void get_input();
 
 int main()
 {
@@ -78,6 +84,11 @@ int main()
 
     /*********************** INIT THREADS ***********************/
     int num = 0;
+    // Generate temperatures
+    pthread_create(&temperature_thread, NULL, (void*)generateTemperature, NULL);
+    pthread_create(&input_thread, NULL, (void*)get_input, NULL);
+
+    // Cars
     pthread_create(&car_queue_thread, NULL, generate_car_queue, (void*)q);
     Assignment_Sleep(10);
     printf("final queue:\n");
@@ -91,7 +102,7 @@ int main()
 
     pthread_join(send_car_thread, 0);   
     
-
+    
     return(EXIT_SUCCESS);
 }
 
@@ -201,7 +212,7 @@ void LPR_generator(char LPR[LPRSZ+1]) {
         
         //Use car from plates.txt
         //Measure Number of plates in file.
-        FILE* file_ptr = fopen("plates.txt","r");
+        FILE* file_ptr = fopen(LPFILE,"r");
         fseek(file_ptr,0,SEEK_END);
         // getting size of file in lines
         int file_plate_count = ftell(file_ptr) / (LPRSZ + 1); //assumes all plates are 6 chars long
@@ -240,6 +251,7 @@ void *send_car_to_enter(void *enter_num)
     pthread_mutex_lock(&entrance->LPR_mutex); // ensure this bahaviour is as expected and doesn't fully freeze
     while(1)
     {
+        fire_alarms_active(); // check no fire alarms are active before 
         // get LP from queue
         char *LPR = dequeue(q);
         //printf("%s\n", LPR);
@@ -265,6 +277,7 @@ void *generate_car_queue(void* arg)
     pthread_mutex_lock(&car_queue_mutex);
     while(1)
     {
+        fire_alarms_active(); // check that no firealarms are active before generating car
         while(q->count < QUEUE_LENGTH)
         {
             // add another car to queue
@@ -290,6 +303,7 @@ void *level_navigation(void *arg)
     pthread_mutex_lock(&entrance->info_sign_mutex); // ensure this bahaviour is as expected and doesn't fully freeze
     while(1)
     {
+        fire_alarms_active(); // check if firealarms are active before doing anything
         // if a car is going in
         if(entrance->info_sign_status != 'X')
         {
@@ -442,28 +456,69 @@ void init_gates()
 }
 
 /* ----------------------------------------------Fire sensor functions----------------------------------------------------*/
-/*
+
 void generateTemperature() {
-    for (int i = 0; i < NUM_LEVELS; i++) {
-        pthread_mutex_lock(&rand_mutex);
-        int16_t tempNoise = ((rand()%2)*2)-1; //sets tempNoise to be -1 or +1;
-        int16_t randScalar = rand()%4;
-        pthread_mutex_unlock(&rand_mutex);
+    while(1)
+    {
+        for (int i = 0; i < NUM_LEVELS; i++) {
+            pthread_mutex_lock(&rand_mutex);
+            int16_t tempNoise = ((rand()%2)*2)-1; //sets tempNoise to be -1 or +1;
+            int16_t randScalar = rand()%4;
+            pthread_mutex_unlock(&rand_mutex);
 
-        switch(fireState) {
-        case 1: //Creep Event (Rising Average)
-            BaseTemp++;
-            CP.shm_ptr->Level[i].temp_sensor = BaseTemp + tempNoise;
-            break;
+            switch(fireState) {
+            case 1: //Creep Event (Rising Average)
+                BaseTemp++;
+                CP.shm_ptr->Level[i].temp_sensor = BaseTemp + tempNoise;
+                break;
 
-        case 2: //Spike Event (Jump to temps > 58)
-            CP.shm_ptr->Level[i].temp_sensor = 60;
-            break;
+            case 2: //Spike Event (Jump to temps > 58)
+                CP.shm_ptr->Level[i].temp_sensor = 60;
+                break;
 
-        default: //Normal Operation
-            BaseTemp = 30;
-            CP.shm_ptr->Level[i].temp_sensor = BaseTemp + (tempNoise*randScalar); // -3 - +3 higher or lower than base temp
-            break;
+            default: //Normal Operation
+                BaseTemp = 30;
+                CP.shm_ptr->Level[i].temp_sensor = BaseTemp + (tempNoise*randScalar); // -3 - +3 higher or lower than base temp
+                break;
+            }
         }
     }
-}*/
+}
+
+// Used to block a thread from doing more if there's a fire detected
+void fire_alarms_active()
+{
+    
+    for(int i = 0; i < NUM_LEVELS; i++)
+    {
+        if(CP.shm_ptr->Level[i].fire_alarm == '1')
+        {
+            printf("Firealarm triggered, blocking program\n");
+            for(;;)
+            {
+                
+            }
+        }
+    }
+
+}
+
+
+
+void get_input()
+{
+    printf("Input function thread started\n");
+    //main loop
+    for (;;) {
+        
+        int charinput = 0;
+        charinput = fgetc(stdin);
+        if (charinput == 'f') {
+            printf("\nIncreasing Temperature Over Time\n\n");
+            fireState = 1;
+        } else if (charinput == 'g') {
+            printf("\nIncreasing Temperature Instantly\n\n");
+            fireState = 2;
+        }
+    }
+}

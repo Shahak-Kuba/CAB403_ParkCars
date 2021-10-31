@@ -18,6 +18,11 @@
 #define QUEUE_LENGTH 10
 
 
+
+
+
+
+
 // Struct for Entrance
 typedef struct Enter
 {
@@ -103,3 +108,22 @@ struct queue
     NP_t *front;
     NP_t *rear;
 };
+
+
+
+
+
+
+
+
+// Firealarm 
+#define EVAC_MESSAGE "EVACUATE "
+#define MEDIAN_WINDOW 5
+#define TEMPCHANGE_WINDOW 30
+
+// variables
+int16_t tempArray [NUM_LEVELS][TEMPCHANGE_WINDOW + MEDIAN_WINDOW]; // assume that 0 values are init
+int tempArrayIndex[NUM_LEVELS];
+int shm_fd;
+shm_CP_t shm;
+int alarm_active = 0;
