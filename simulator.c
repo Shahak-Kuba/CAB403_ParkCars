@@ -70,6 +70,11 @@ void fire_alarms_active();
 pthread_t input_thread;
 void get_input();
 
+pthread_t create_car_thread;
+pthread_t gate_thread;
+pthread_t level_nav_thread;
+pthread_t create_car_thread;
+
 int main()
 {
     pthread_mutex_init(&rand_mutex, NULL);
@@ -87,14 +92,17 @@ int main()
     display(q->front);
 
     // generating car queue thread
-    pthread_t create_car_thread;
     pthread_create(&create_car_thread, NULL, generate_car_queue, (void*)q);
     Assignment_Sleep(100); // sleep to make sure cars are initially generated
 
     int num = 0; // doing for 1 entrance/level/exit, will replace with a for loop
     pthread_create(&send_car_thread, NULL, send_car_to_enter, (void *)&num);
-    pthread_t gate_thread;
+    
     pthread_create(&gate_thread, NULL, toggleGate, (void *)&num);
+
+    pthread_create(&level_nav_thread, NULL, level_navigation, (void *)&num);
+
+    pthread_create(&input_thread, NULL, (void *)get_input, NULL);
 
     pthread_join(create_car_thread, NULL);
     return(EXIT_SUCCESS);
@@ -434,6 +442,49 @@ void *toggleGate(void* enter_num)
 
 }
 
+/*-----------------------------------------Level navigation FUNCTIONS------------------------------------------------*/
+
+void *level_navigation(void *enter_num)
+{
+    // get enterance number cast from void
+    int num = *(int *)enter_num;
+    Enter_t *entrance = &CP.shm_ptr->Enter[num];
+
+    // predeclare level variable
+    Level_t *level;
+    int level_num;
+    pthread_mutex_lock(&entrance->info_sign_mutex);
+    while(1)
+    {
+        // check if firealarms are active before doing anything
+        fire_alarms_active(); 
+
+        // check if the car is allowed in
+        printf("checking sign status\n");
+        if(entrance->info_sign_status != 'X')
+        {
+            Assignment_Sleep(10);
+            // getting the level number
+            level_num = (int) entrance->info_sign_status - '1';
+            // getting the level struct
+            level = &CP.shm_ptr->Level[level_num];
+            // copying LPR to level data
+            pthread_mutex_lock(&level->LPR_mutex);
+            memcpy(level->LPR_reading, entrance->LPR_reading, 6);
+            pthread_mutex_unlock(&level->LPR_mutex);
+            printf("Level %d recieved LPR: %s\n", level_num, level->LPR_reading);
+
+        }
+        // removing the car from entrace
+        entrance->LPR_reading[0] = 0;
+        pthread_mutex_unlock(&entrance->info_sign_mutex);
+        pthread_cond_signal(&entrance->info_sign_cond);
+        pthread_mutex_lock(&entrance->info_sign_mutex);
+        pthread_cond_wait(&entrance->info_sign_cond, &entrance->info_sign_mutex);
+    }
+
+
+}
 /*------------------------------------------FIRE ALARM----------------------------------------*/
 
 void generateTemperature() {
@@ -502,6 +553,15 @@ void get_input()
         } else if (charinput == 'g') {
             printf("\nIncreasing Temperature Instantly\n\n");
             fireState = 2;
+        }
+        else if(charinput == 'c')
+        {
+            pthread_cancel(send_car_thread);
+            pthread_cancel(create_car_thread);
+            pthread_cancel(level_nav_thread);
+            pthread_cancel(input_thread);
+            pthread_cancel(gate_thread);
+            clear_memory(&CP);
         }
     }
 }

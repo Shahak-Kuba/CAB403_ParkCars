@@ -267,10 +267,6 @@ void *enterFunc(void *enter_num)
     // initialising level to be -1 (not allocated yet)
     int level_num = -1;
     // inifinite while loop
-
-    // predeclaring a level
-    Level_t *level;
-
     while(1)
     {
         // checking if there is a number plate in LPR reading
@@ -335,14 +331,14 @@ void *enterFunc(void *enter_num)
                 printf("Boom status is set to %c\n",entrance->BOOM_status);
                 pthread_mutex_unlock(&entrance->BOOM_mutex);
 
-                // declaring the level the car will go to
-                level = CP.shm_ptr->Level[level_num];
-                // sending signal to level LPR
-                pthread_cond_signal(&level->LPR_cond);
+                /*-----------------Navigating car ----------------*/ 
+            
+                // sending signal to info sign cond
+                pthread_cond_signal(&entrance->info_sign_cond);
                 // waiting for a signal saying the car has gone in
-                pthread_cond_wait(&level->LPR_cond,&level->LPR_mutex);
+                pthread_cond_wait(&entrance->info_sign_cond,&entrance->info_sign_mutex);
                 // unlocking mutex for other cars
-                pthread_mutex_unlock(&level->LPR_mutex);
+                pthread_mutex_unlock(&entrance->info_sign_mutex);
 
 
                 /*-----------------LOWERING BOOM GATE ----------------*/ 
@@ -361,6 +357,20 @@ void *enterFunc(void *enter_num)
                 pthread_mutex_unlock(&entrance->BOOM_mutex);
 
             }
+            else
+            {
+                // set the value for the info sign
+                pthread_mutex_lock(&entrance->info_sign_mutex);
+                entrance->info_sign_status = 'X';
+                pthread_mutex_unlock(&entrance->info_sign_mutex);
+                printf("sign set to %c\n", entrance->info_sign_status);
+
+                
+                // sending signal to level LPR
+                pthread_cond_signal(&entrance->info_sign_cond);
+            }
+            // send a signal saying im empty
+            pthread_cond_signal(&entrance->LPR_cond);
         }  
 
         printf("waiting for a new car to be at the entrance\n");
