@@ -86,9 +86,9 @@ typedef struct Shm_Carpark {
 
 
 // --------------------------------------------------Car struct-------------------------------------------
-typedef struct Car Car_t;
 
-typedef struct Car
+typedef struct Car Car_t;
+struct Car
 {
     int level;
     clock_t time_in;

@@ -334,7 +334,7 @@ void *enterFunc(void *enter_num)
                 }
 
                 // set the value for the info sign
-                //pthread_mutex_lock(&entrance->info_sign_mutex);
+                pthread_mutex_lock(&entrance->info_sign_mutex);
                 entrance->info_sign_status = '1' + level_num;
                 pthread_mutex_unlock(&entrance->info_sign_mutex);
                 printf("sign set to %c\n", entrance->info_sign_status);
