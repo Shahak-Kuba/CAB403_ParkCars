@@ -122,6 +122,7 @@ int main(void) {
         usleep(2000); //wait 2ms between next reading
     }
 	//alarm flag true, raise alarm.
+    fprintf(stderr,"\nALARM TRIGGERED\n");
 
 	// Activate alarms on all levels
     for (int i = 0; i < NUM_LEVELS; i++) {
