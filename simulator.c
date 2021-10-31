@@ -56,7 +56,7 @@ void display(NP_t *head);
 int linecount = 0;
 
 /* boom arm simulation functions */
-void *toggleGate(void *arg);
+void *toggleGate(void *enter_num);
 void init_gates();
 
 /* fire sensor simulation functions */
@@ -93,7 +93,8 @@ int main()
 
     int num = 0; // doing for 1 entrance/level/exit, will replace with a for loop
     pthread_create(&send_car_thread, NULL, send_car_to_enter, (void *)&num);
-
+    pthread_t gate_thread;
+    pthread_create(&gate_thread, NULL, toggleGate, (void *)&num);
 
     pthread_join(create_car_thread, NULL);
     return(EXIT_SUCCESS);
@@ -274,20 +275,10 @@ void display(NP_t *head)
     }
 }
 
-void init_gates()
+/*-----------------------------------CAR GENERATION AND SEND TO GATE ----------------------------------------*/
+
+void LPR_generator(char LPR[LPRSZ+1]) 
 {
-
-    CP_t *carpark = CP.shm_ptr;
-    printf("%p\n", carpark);
-    for(int i = 0; i < NUM_LEVELS; i++)
-    {
-        carpark->Enter[i].info_sign_status = 'X';
-        carpark->Enter[i].BOOM_status = 'C';
-    }
-
-}
-
-void LPR_generator(char LPR[LPRSZ+1]) {
     pthread_mutex_lock(&rand_mutex);
     if (rand() % 100 <= car_list_chance) {
         
@@ -387,6 +378,60 @@ void *send_car_to_enter(void *enter_num)
         printf("waiting for entrance to be empty\n");
         pthread_cond_wait(&entrance->LPR_cond, &entrance->LPR_mutex);
     }
+}
+
+/*-----------------------------------------BOOM GATE FUNCTIONS------------------------------------------------*/
+void init_gates()
+{
+
+    CP_t *carpark = CP.shm_ptr;
+    printf("%p\n", carpark);
+    for(int i = 0; i < NUM_LEVELS; i++)
+    {
+        carpark->Enter[i].info_sign_status = 'X';
+        carpark->Enter[i].BOOM_status = 'C';
+    }
+
+}
+
+void *toggleGate(void* enter_num) 
+{
+    // getting entrance number
+    int entrance_num = *(int *)enter_num;
+    Enter_t *entrance = &CP.shm_ptr->Enter[entrance_num];
+
+    // initial lock of boom gate mutex
+    pthread_mutex_lock(&entrance->BOOM_mutex);
+    
+    // infinit loop
+    while(1)
+    {
+        Assignment_Sleep(10); // 10ms wait as per requirement
+        // if 'R' then 'O'
+        if(entrance->BOOM_status == 'R')
+        {
+            // change
+            entrance->BOOM_status = 'O';
+            printf("Boom status is set to %c\n",entrance->BOOM_status);
+
+        }
+        // (else) if 'L' then 'C'
+        else if(entrance->BOOM_status == 'L')
+        {
+            // change
+            entrance->BOOM_status = 'C';
+            printf("Boom status is set to %c\n",entrance->BOOM_status);
+        }
+
+        pthread_mutex_unlock(&entrance->BOOM_mutex);
+        // return a signal saying boom gate status has changed
+        pthread_cond_signal(&entrance->BOOM_cond);
+        
+        pthread_mutex_lock(&entrance->BOOM_mutex);
+        printf("BOOM mutex unlocked and waiting for signal\n");
+        pthread_cond_wait(&entrance->BOOM_cond, &entrance->BOOM_mutex);
+    }
+
 }
 
 /*------------------------------------------FIRE ALARM----------------------------------------*/

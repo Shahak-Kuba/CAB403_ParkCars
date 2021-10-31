@@ -59,11 +59,14 @@ int main()
     LPR_to_htab(&h);
     htab_print(&h); // debug print
 
-    
-    int enter_num = 0;
+
+    int num = 0;
 
     pthread_t enter; 
-    pthread_create(&enter,NULL, enterFunc , (void *)&enter_num);
+    pthread_create(&enter,NULL,enterFunc,(void *)&num);
+
+
+    pthread_join(enter, NULL);
 
 }
 
@@ -249,7 +252,124 @@ void htab_print(htab_t *h)
 
 void *enterFunc(void *enter_num)
 {
+    // get the entrance we are looking at
+    int num = *(int *)enter_num;
+    Enter_t *entrance = &CP.shm_ptr->Enter[num];
 
+    // initially locking all mutex's for enterance 
+    pthread_mutex_lock(&entrance->LPR_mutex);
+
+    // temporary LPR variable to store any cars that come to entrance
+    char temp_LPR[7];
+    // last byte set to end character
+    temp_LPR[6] = 0; 
+
+    // initialising level to be -1 (not allocated yet)
+    int level_num = -1;
+    // inifinite while loop
+
+    // predeclaring a level
+    Level_t *level;
+
+    while(1)
+    {
+        // checking if there is a number plate in LPR reading
+        if(entrance->LPR_reading[0] != 0){
+            printf("car at the entrance\n");
+            // copying new LP to the temp variable
+            memcpy(temp_LPR, entrance->LPR_reading, 6);
+
+            // check if car is allowed in
+            if(htab_find(&h, temp_LPR) != NULL){
+
+                // find level number and incrementing
+                pthread_mutex_lock(&level_car_counter_mutex);
+                for (int i = 0; i < NUM_LEVELS; i++)
+                {
+                    if(level_car_counter[i] < LEVEL_CAPACITY)
+                    {
+                        level_num = i;
+                        level_car_counter[i]++;
+                        printf("inserting a car to level %d\n", i); //debug
+                        break;
+                    }
+                }
+                // check if carpark is full (should not happen but incase it does)
+                if(level_num == -1)
+                {
+                    printf("Carpark is full idiot!");
+                    break;
+                }
+                // release level counter mutex 
+                pthread_mutex_unlock(&level_car_counter_mutex);
+
+
+                // checking cars are going to the right level
+                printf("%s inserted into carpark at level %d\n", temp_LPR, level_num);
+                printf("number of cars in a each level: \n" );
+                for(int i = 0; i < NUM_LEVELS; i++)
+                {
+                    printf("Level %d: %d \n",i+1, level_car_counter[i]);
+                }
+
+                // set the value for the info sign
+                pthread_mutex_lock(&entrance->info_sign_mutex);
+                entrance->info_sign_status = '1' + level_num;
+                pthread_mutex_unlock(&entrance->info_sign_mutex);
+                printf("sign set to %c\n", entrance->info_sign_status);
+
+                /*-----------------RAISING BOOM GATE ----------------*/ 
+
+                 // sending signal to open boom gate 
+                pthread_mutex_lock(&entrance->BOOM_mutex);
+                entrance->BOOM_status = 'R';
+                printf("Boom status is set to %c\n",entrance->BOOM_status);
+                pthread_mutex_unlock(&entrance->BOOM_mutex);
+                // sending signal to simulator boom
+                printf("sending signal to BOOM GATE Simulator with raising\n");
+                pthread_cond_signal(&entrance->BOOM_cond);
+                printf("signal sent\n");
+                // waiting then locking
+                printf("waiting for open gate signal\n");
+                pthread_cond_wait(&entrance->BOOM_cond, &entrance->BOOM_mutex); // unlocks and mutex and wait
+                printf("Boom status is set to %c\n",entrance->BOOM_status);
+                pthread_mutex_unlock(&entrance->BOOM_mutex);
+
+                // declaring the level the car will go to
+                level = CP.shm_ptr->Level[level_num];
+                // sending signal to level LPR
+                pthread_cond_signal(&level->LPR_cond);
+                // waiting for a signal saying the car has gone in
+                pthread_cond_wait(&level->LPR_cond,&level->LPR_mutex);
+                // unlocking mutex for other cars
+                pthread_mutex_unlock(&level->LPR_mutex);
+
+
+                /*-----------------LOWERING BOOM GATE ----------------*/ 
+                pthread_mutex_lock(&entrance->BOOM_mutex);
+                entrance->BOOM_status = 'L';
+                printf("Boom status is set to %c\n",entrance->BOOM_status);
+                pthread_mutex_unlock(&entrance->BOOM_mutex);
+                // send a signal to simulator to lower the boom arm
+                printf("sending signal to BOOM GATE Simulator with raising\n");
+                pthread_cond_signal(&entrance->BOOM_cond);
+                printf("signal sent\n");
+                // waiting then locking
+                printf("waiting for open gate signal\n");
+                pthread_cond_wait(&entrance->BOOM_cond, &entrance->BOOM_mutex); // unlocks and mutex and wait
+                printf("Boom status is set to %c\n",entrance->BOOM_status);
+                pthread_mutex_unlock(&entrance->BOOM_mutex);
+
+            }
+        }  
+
+        printf("waiting for a new car to be at the entrance\n");
+        pthread_cond_wait(&entrance->LPR_cond, &entrance->LPR_mutex);
+
+    }  
+    //unlocking all mutex
+    pthread_mutex_unlock(&entrance->LPR_mutex);
+    return 0;  
 }
 
 
