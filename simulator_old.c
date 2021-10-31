@@ -11,12 +11,8 @@
 #include <math.h>
 #include "datas.h"
 
-void Assignment_Sleep(int time_in_milli_sec);
-
-// simulation variable
 int car_list_chance = 100;
 
-// shared mem variables
 shm_CP_t CP;
 pthread_mutex_t rand_mutex; // mutex for random LPR generation
 
@@ -24,36 +20,36 @@ pthread_mutex_t rand_mutex; // mutex for random LPR generation
 int shared_mem_init(shm_CP_t* shm, char* shm_key);
 void clear_memory( shm_CP_t* shm ); 
 
+void Assignment_Sleep(int time_in_milli_sec);
+
+// simulation functions
+
 /* car simulation functions */
 void LPR_generator(); // function that will generate random LPR
-void *generate_car_queue(void *arg); // function that will fill a linked list of cars waiting for a
+void *navigate_func(void *enter_num); // direct a car and remembe the level it goes to (5 threads)
 void *send_car_to_enter(void *enter_num); // sends a car from que to entrance (5 threads)
-
+void *generate_car_queue(void *arg); // function that will fill a linked list of cars waiting for a 
 void *level_navigation(void *arg);
 
 // queue thread
 queue *q;
+pthread_t car_queue_thread;
 pthread_mutex_t car_queue_mutex;
 pthread_cond_t car_queue_cond;
 
 // send car threads
 pthread_t send_car_thread;
-pthread_mutex_t send_car_from_queue_mutex;
-pthread_cond_t send_car_from_queue_cond;
 
 // car queue functions
 void initialize(queue *q);
 int isempty(queue *q);
 void enqueue(queue *q, char LP[7]);
-// dequeue car function and pthreads
-pthread_mutex_t car_dequeue_mutex;
-pthread_cond_t car_dequeue_cond;
-bool dequeue(queue *q, char LP[7]);
-// display queue function
+char* dequeue(queue *q);
 void display(NP_t *head);
 
-// car generation variable
+// car generation function
 int linecount = 0;
+
 
 /* boom arm simulation functions */
 void *toggleGate(void *arg);
@@ -86,22 +82,29 @@ int main()
     initialize(q);
     display(q->front);
 
-    // generating car queue thread
-    pthread_t create_car_thread;
-    pthread_create(&create_car_thread, NULL, generate_car_queue, (void*)q);
-    Assignment_Sleep(100); // sleep to make sure cars are initially generated
+    /*********************** INIT THREADS ***********************/
+    int num = 0;
+    // Generate temperatures
+    pthread_create(&temperature_thread, NULL, (void*)generateTemperature, NULL);
+    pthread_create(&input_thread, NULL, (void*)get_input, NULL);
 
-    int num = 0; // doing for 1 entrance/level/exit, will replace with a for loop
+    // Cars
+    pthread_create(&car_queue_thread, NULL, generate_car_queue, (void*)q);
+    Assignment_Sleep(10); // initial generation of cars
+    printf("final queue:\n");
+    display(q->front);
     pthread_create(&send_car_thread, NULL, send_car_to_enter, (void *)&num);
+    pthread_t gate_thread;
+    pthread_create(&gate_thread, NULL, toggleGate, (void *)&num);
 
+    //pthread_t level_nav_thread;
+    //pthread_create(&level_nav_thread, NULL, level_navigation, (void *)&num);
 
-    pthread_join(create_car_thread, NULL);
+    pthread_join(send_car_thread, 0);   
+    
+    
     return(EXIT_SUCCESS);
 }
-
-
-
-
 
 /* ----------------------------------------------shared memory functions----------------------------------------------------*/
 
@@ -203,6 +206,141 @@ void Assignment_Sleep(int time_in_milli_sec)
     usleep(time);
 }
 
+void LPR_generator(char LPR[LPRSZ+1]) {
+    pthread_mutex_lock(&rand_mutex);
+    if (rand() % 100 <= car_list_chance) {
+        
+        //Use car from plates.txt
+        //Measure Number of plates in file.
+        FILE* file_ptr = fopen(LPFILE,"r");
+        fseek(file_ptr,0,SEEK_END);
+        // getting size of file in lines
+        int file_plate_count = ftell(file_ptr) / (LPRSZ + 1); //assumes all plates are 6 chars long
+        //Take Random Plate from file
+        fseek(file_ptr,(rand() % file_plate_count)*(LPRSZ+1),SEEK_SET);
+        fgets(LPR,LPRSZ+1,file_ptr);
+        fclose(file_ptr);
+
+            if(linecount == file_plate_count)
+            {
+                linecount = 0;
+            }
+        
+        } else {
+        //Generate random car plate
+        for(int i = 0; i < LPRSZ; i++) {
+            if(i < 3) { // first 3 are numbers
+                LPR[i] = '0' + (random() % 10);
+            } else { // last 3 are letters
+                LPR[i] = 'A' + random() % 26;
+            }
+        }
+    }    
+    LPR[6] = 0;
+    pthread_mutex_unlock(&rand_mutex);
+}
+
+void *send_car_to_enter(void *enter_num)
+{
+    // get level cast from void
+    int num = *(int *)enter_num;
+    Enter_t *entrance = &CP.shm_ptr->Enter[num];
+
+    // mutex lock this thread
+    printf("locking lpr\n");
+    pthread_mutex_lock(&entrance->LPR_mutex); // ensure this bahaviour is as expected and doesn't fully freeze
+    char LPR[7];
+    while(1)
+    {
+        fire_alarms_active(); // check no fire alarms are active before 
+        // get LP from queue
+        while(dequeue(q, LPR))
+        {
+            //printf("%s\n", LPR);
+            memcpy(entrance->LPR_reading, LPR, 6);
+            printf("%d enterance got the car %s\n", num+1, LPR);
+
+            // send signal to &entrance->LPR_cond
+            pthread_cond_signal(&entrance->LPR_cond);
+            printf("Signal sent to entrance LPR\n");
+
+            // send signal to generator function
+            pthread_cond_signal(&car_queue_cond);
+            printf("Signal sent to carqueue gen\n");
+
+            // wait for LPR_cond signal
+            pthread_cond_wait(&entrance->LPR_cond, &entrance->LPR_mutex);
+        }
+        
+    }
+}
+
+void *generate_car_queue(void* arg)
+{
+    queue *q = (queue *) arg;
+    pthread_mutex_lock(&car_queue_mutex);
+    while(1)
+    {
+        fire_alarms_active(); // check that no firealarms are active before generating car
+        int random_time = (int) floor(rand()%100);
+        Assignment_Sleep(random_time);
+        while(q->count < QUEUE_LENGTH)
+        {
+            // add another car to queue
+            char LPlate[7];
+            LPR_generator(LPlate);
+            
+            //enqueue car
+            enqueue(q, LPlate);
+        }
+        display(q->front);
+        pthread_cond_wait(&car_queue_cond, &car_queue_mutex);
+        //printf("%p", arg); /// Only here cause get error dunno how to not parse an arg
+    }
+}
+
+void *level_navigation(void *arg)
+{
+    // get enterance number cast from void
+    int num = *(int *)arg;
+    Enter_t *entrance = &CP.shm_ptr->Enter[num];
+
+    // mutex lock this thread
+    pthread_mutex_lock(&entrance->info_sign_mutex); // ensure this bahaviour is as expected and doesn't fully freeze
+    while(1)
+    {
+        fire_alarms_active(); // check if firealarms are active before doing anything
+        // if a car is going in
+        if(entrance->info_sign_status != 'X')
+        {
+            int level_num = entrance->info_sign_status - '0';
+            printf("level number is %d\n",level_num);
+            Level_t *level = &CP.shm_ptr->Level[level_num];
+            // lock the level LPR mutex
+            pthread_mutex_lock(&level->LPR_mutex);
+            // storing the LPR in level
+            memcpy(level->LPR_reading,entrance->LPR_reading,6);
+            // unlocking the level LPR mutex
+            pthread_mutex_unlock(&level->LPR_mutex);
+
+            // send a signal to the manager to store the car in the cars in carpark data
+            //pthread_cond_signal(&level->LPR_cond);
+            //pthread_mutex_lock(&level->LPR_mutex);
+            //pthread_cond_wait(&level->LPR_cond, &level->LPR_mutex);
+        }
+
+        // remove car from entrance
+        pthread_mutex_lock(&entrance->LPR_mutex);
+        entrance->LPR_reading[0] = 0;
+        pthread_mutex_unlock(&entrance->LPR_mutex);
+
+        // return a signal back to the 
+        pthread_mutex_lock(&entrance->info_sign_mutex);
+        pthread_cond_wait(&entrance->info_sign_cond, &entrance->info_sign_mutex);
+        printf("doing something in the info sign\n");
+    }
+
+}
 // Car queue functions
 void initialize(queue *q)
 {
@@ -274,6 +412,56 @@ void display(NP_t *head)
     }
 }
 
+/* ----------------------------------------------Boom arm simulation functions----------------------------------------------------*/
+void *toggleGate(void* entrance_no_ptr) {
+
+    int entrance_num = *(int *)entrance_no_ptr;
+    Enter_t *entrance = &CP.shm_ptr->Enter[entrance_num];
+
+    pthread_mutex_lock(&entrance->BOOM_mutex);
+    printf("BOOM mutex locked\n"); 
+    while(1)
+    {
+         
+        Assignment_Sleep(10);
+        // if 'R' then 'O'
+        if(entrance->BOOM_status == 'R')
+        {
+            // change
+            entrance->BOOM_status = 'O';
+            printf("Boom status is set to %c\n",entrance->BOOM_status);
+
+        }
+        // (else) if 'L' then 'C'
+        else if(entrance->BOOM_status == 'L')
+        {
+            // change
+            entrance->BOOM_status = 'C';
+            printf("Boom status is set to %c\n",entrance->BOOM_status);
+        }
+
+        pthread_mutex_unlock(&entrance->BOOM_mutex);
+        printf("BOOM unlocked\n");
+
+        // let manager know the boomgate is either open or closed 
+        printf("sending signal with boom gate %c\n", entrance->BOOM_status);
+        pthread_cond_signal(&entrance->BOOM_cond);  
+        printf("signal sent\n");
+
+        /*
+        // send a signal to the simulation which will navigate the car to its allocated level
+        printf("sending signal to the info sign cond\n");
+        pthread_cond_signal(&entrance->info_sign_cond); */
+
+        // waiting for next boom signal to be sent
+        pthread_mutex_lock(&entrance->BOOM_mutex); // locking so we can unlock with wait
+        printf("BOOM mutex unlocked and waiting for signal\n");
+        pthread_cond_wait(&entrance->BOOM_cond, &entrance->BOOM_mutex);
+        printf("recieved signal\n");
+    }
+    pthread_mutex_unlock(&entrance->BOOM_mutex);
+}
+
 void init_gates()
 {
 
@@ -287,109 +475,7 @@ void init_gates()
 
 }
 
-void LPR_generator(char LPR[LPRSZ+1]) {
-    pthread_mutex_lock(&rand_mutex);
-    if (rand() % 100 <= car_list_chance) {
-        
-        //Use car from plates.txt
-        //Measure Number of plates in file.
-        FILE* file_ptr = fopen(LPFILE,"r");
-        fseek(file_ptr,0,SEEK_END);
-        // getting size of file in lines
-        int file_plate_count = ftell(file_ptr) / (LPRSZ + 1); //assumes all plates are 6 chars long
-        //Take Random Plate from file
-        fseek(file_ptr,linecount*(LPRSZ+1),SEEK_SET);
-        fgets(LPR,LPRSZ+1,file_ptr);
-        fclose(file_ptr);
-        linecount++;
-
-            if(linecount == file_plate_count)
-            {
-                linecount = 0;
-            }
-        
-        } else {
-        //Generate random car plate
-        for(int i = 0; i < LPRSZ; i++) {
-            if(i < 3) { // first 3 are numbers
-                LPR[i] = '0' + (random() % 10);
-            } else { // last 3 are letters
-                LPR[i] = 'A' + random() % 26;
-            }
-        }
-    }    
-    LPR[6] = 0;
-    pthread_mutex_unlock(&rand_mutex);
-}
-
-void *generate_car_queue(void* arg)
-{
-    queue *q = (queue *) arg;
-    pthread_mutex_lock(&car_queue_mutex);
-    while(1)
-    {
-        fire_alarms_active(); // check that no firealarms are active before generating car
-        int random_time = (int) floor(rand()%100);
-        Assignment_Sleep(random_time);
-        while(q->count < QUEUE_LENGTH)
-        {
-            // add another car to queue
-            char LPlate[7];
-            LPR_generator(LPlate);
-            
-            //enqueue car
-            enqueue(q, LPlate);
-        }
-        display(q->front);
-        pthread_cond_wait(&car_queue_cond, &car_queue_mutex);
-        //printf("%p", arg); /// Only here cause get error dunno how to not parse an arg
-    }
-}
-
-void *send_car_to_enter(void *enter_num)
-{
-    // get level cast from void
-    int num = *(int *)enter_num;
-    Enter_t *entrance = &CP.shm_ptr->Enter[num];
-
-    // mutex lock this thread
-    pthread_mutex_lock(&entrance->LPR_mutex); // ensure this bahaviour is as expected and doesn't fully freeze
-    char LPR[7];
-    while(1)
-    {
-        fire_alarms_active(); // check no fire alarms are active before 
-        // check if the entrance is empty
-        if(entrance->LPR_reading[0] == 0)
-        {
-            // lock the queue so no other entrances can dequeue a car
-            pthread_mutex_lock(&car_dequeue_mutex);
-            // check if we can dequeue a car
-            if(dequeue(q, LPR))
-            {
-                //copy LPR
-                memcpy(entrance->LPR_reading, LPR, 6);
-                printf("%d enterance got the car %s\n", num+1, LPR);
-
-                // send signal to &entrance->LPR_cond saying recieved a car
-                pthread_cond_signal(&entrance->LPR_cond);
-                printf("Signal sent to entrance LPR\n");
-
-                // send signal to generator function make a new car
-                pthread_cond_signal(&car_queue_cond);
-                printf("Signal sent to carqueue gen\n");
-            }
-            // lock the queue so other entrances can dequeue a car
-            pthread_mutex_unlock(&car_dequeue_mutex);
-        }
-
-        display(q->front);
-        // waiting for car to leave the entrance
-        printf("waiting for entrance to be empty\n");
-        pthread_cond_wait(&entrance->LPR_cond, &entrance->LPR_mutex);
-    }
-}
-
-/*------------------------------------------FIRE ALARM----------------------------------------*/
+/* ----------------------------------------------Fire sensor functions----------------------------------------------------*/
 
 void generateTemperature() {
     while(1)
@@ -441,7 +527,6 @@ void fire_alarms_active()
 
 }
 
-/*------------------------------------------USER INPUT-----------------------------------------*/
 
 void get_input()
 {

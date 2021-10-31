@@ -48,7 +48,6 @@ void sort( int16_t * array , int n )
             }
         }
     }
-    return NULL;
 }
 
 // function to calculate the median of the array
