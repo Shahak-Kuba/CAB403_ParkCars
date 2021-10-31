@@ -85,6 +85,18 @@ typedef struct Shm_Carpark {
 } shm_CP_t;
 
 
+// --------------------------------------------------Car struct-------------------------------------------
+typedef struct Car Car_t;
+
+typedef struct Car
+{
+    int level;
+    clock_t time_in;
+    int time_inside; // in ms
+    char LPR[6];
+    Car_t *next;
+};
+
 // ---------------------------------------------------------Hash table-------------------------------------------------------
 typedef struct NP NP_t;
 struct NP
@@ -108,12 +120,6 @@ struct queue
     NP_t *front;
     NP_t *rear;
 };
-
-
-
-
-
-
 
 
 // Firealarm 

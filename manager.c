@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
+#include <math.h>
 #include "datas.h"
 
 // Global variables
@@ -18,8 +19,20 @@ htab_t h;
 int level_car_counter[] = {0,0,0,0,0}; // zero cars in each level initally
 pthread_mutex_t level_car_counter_mutex;
 
+// define array of linked lists
+Car_t *cars_inside[NUM_LEVELS];
+for(int i = 0; i < NUM_LEVELS; i++)
+{
+    cars_inside[i] = NULL;
+}
+// mutex lock for adding cars inside
+pthread_mutex_t add_car_in_mutex;
+
 
 // Predefining functions
+
+// adding to array of linked lists func
+int addCar(Car_t ***new_head, Car_t *next);
 
 void Assignment_Sleep(int time_in_milli_sec);
 
@@ -248,6 +261,8 @@ void htab_print(htab_t *h)
     }
 }
 
+
+
 // Enternce routine
 
 void *enterFunc(void *enter_num)
@@ -280,6 +295,7 @@ void *enterFunc(void *enter_num)
 
                 // find level number and incrementing
                 pthread_mutex_lock(&level_car_counter_mutex);
+                level_num = -1; // resetting level to be -1
                 for (int i = 0; i < NUM_LEVELS; i++)
                 {
                     if(level_car_counter[i] < LEVEL_CAPACITY)
@@ -331,6 +347,21 @@ void *enterFunc(void *enter_num)
                 printf("Boom status is set to %c\n",entrance->BOOM_status);
                 pthread_mutex_unlock(&entrance->BOOM_mutex);
 
+                /* -----------------------Storing Cars--------------------*/
+                pthread_lock(&add_car_in_mutex);
+                // creating new car
+                // &cars_indside[1] = newcar;
+                Car_t *newcar = (Car_t *)malloc(sizeof(Car_t));
+                newcar->level = level_num;
+                memcpy(newcar->LPR, entrance->LPR_reading, 6);
+                newcar->time_in = clock();
+                // storing a random time inside
+                newcar->time_inside = floor(rand() % 9900) + 100; // cheeky cheeky
+                
+                // adding that new car to the tail of the linked list
+                if cars_inside
+
+                pthread_mutex_unlock(&add_car_in_mutex);
                 /*-----------------Navigating car ----------------*/ 
             
                 // sending signal to info sign cond
