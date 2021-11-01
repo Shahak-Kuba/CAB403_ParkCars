@@ -9,14 +9,20 @@
 #include <fcntl.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <math.h>
 #include "datas.h"
 
 #define DEBUG false
 
 
+
+
 // Global variables
 shm_CP_t CP;
 htab_t h;
+
+// billing
+float total_revenue = 0;
 
 // level counter to count how many cars in a level
 int level_car_counter[] = {0,0,0,0,0}; // zero cars in each level initally
@@ -428,7 +434,6 @@ void *enterFunc(void *enter_num)
             // copying new LP to the temp variable
             memcpy(temp_LPR, entrance->LPR_reading, 6);
             level_num = -1;
-
             // check if car is allowed in
             if(htab_find(&h, temp_LPR) != NULL){
 
@@ -581,6 +586,13 @@ void *exitFunc(void *exit_num)
 
 
 void *display_func()
+/*****************************************************************************
+ * @brief   Displays a GUI of all values
+ * @author  Maxime Stuehrenberg
+ * @date    01/11/2021
+ * @return  void
+ * @arg     void
+ *****************************************************************************/
 {
     if(DEBUG == false)
     {
@@ -598,9 +610,34 @@ void *display_func()
                 bar[i] = '=';
             }
 
+            
+
             // Display 
 
             printf("%s\n", bar);
+
+            int calc = (int)floor((width - 29)/2);
+            char space_buffer[calc];
+
+
+            for(int i = 0; i < calc; i++)
+            {
+                space_buffer[i] = ' ';
+            }
+
+            // firealarm check
+
+            for(int l = 0; l < NUM_LEVELS; l++)
+            {
+                if(CP.shm_ptr->Level[l].fire_alarm == '1')
+                {
+                    printf("%s", space_buffer);
+                    printf("!!! FIRE ALARM ACTIVE ON LEVEL %d !!!", l);
+                    printf("%s\n", space_buffer);
+                }
+                
+            }
+
             printf("\nEntrance license plates:\n");
             
             for(int e = 0; e < NUM_ENTERS; e++)
@@ -631,7 +668,15 @@ void *display_func()
             {
                 printf(" LVL %d TMP: |  %d  |", l, CP.shm_ptr->Level[l].temp_sensor);
             }
-            
+
+            printf("\n\n");
+            printf("Level capacities:\n");
+            for(int l = 0; l < NUM_LEVELS; l++)
+            {
+                printf(" LVL %d CAP: |%d of %d|", l, level_car_counter[l], LEVEL_CAPACITY);
+            }
+            printf("\n\n");
+            printf("Total billing revenue: $%.2f\n",total_revenue );
 
 
             printf("\n");
