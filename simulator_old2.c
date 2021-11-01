@@ -29,7 +29,8 @@ void LPR_generator(); // function that will generate random LPR
 void *generate_car_queue(void *arg); // function that will fill a linked list of cars waiting for a
 void *send_car_to_enter(void *enter_num); // sends a car from que to entrance (5 threads)
 
-void *level_navigation(void *arg);
+void *levelNavigation(void *arg);
+void *carLeaving(void *exit_num);
 
 // queue thread
 queue *q;
@@ -57,6 +58,7 @@ int linecount = 0;
 
 /* boom arm simulation functions */
 void *toggleGate(void *enter_num);
+void *toggleGateExit(void* exit_num) ;
 void init_gates();
 
 /* fire sensor simulation functions */
@@ -74,6 +76,8 @@ pthread_t create_car_thread;
 pthread_t gate_thread;
 pthread_t level_nav_thread;
 pthread_t create_car_thread;
+pthread_t exit_gate_thread;
+pthread_t car_leave_thread;
 
 int main()
 {
@@ -100,9 +104,14 @@ int main()
     
     pthread_create(&gate_thread, NULL, toggleGate, (void *)&num);
 
-    pthread_create(&level_nav_thread, NULL, level_navigation, (void *)&num);
+    pthread_create(&level_nav_thread, NULL, levelNavigation, (void *)&num);
 
     pthread_create(&input_thread, NULL, (void *)get_input, NULL);
+
+    /*
+    pthread_create(&exit_gate_thread, NULL, toggleGateExit, (void *)&num);  
+
+    pthread_create(&car_leave_thread, NULL, carLeaving, (void *)&num);*/
 
     pthread_join(create_car_thread, NULL);
     return(EXIT_SUCCESS);
@@ -230,7 +239,7 @@ void enqueue(queue *q, char LP[7])
     if (q->count < QUEUE_LENGTH)
     {
         NP_t *tmp;
-        tmp = malloc(sizeof(NP_t));
+        tmp = (NP_t *)malloc(sizeof(NP_t));
         memcpy(tmp->number_plate,LP, 7);
         tmp->next = NULL;
         if(!isempty(q))
@@ -251,7 +260,6 @@ void enqueue(queue *q, char LP[7])
         printf("Queue is full.... if this prints it's a bad sign :(( \n");
     }
 
-    //printf("%s\n", LP);
 }
 
 bool dequeue(queue *q, char LP[7])
@@ -265,6 +273,10 @@ bool dequeue(queue *q, char LP[7])
     memcpy(LP, q->front->number_plate, 7);
     tmp = q->front;
     q->front = q->front->next;
+    if(q->front == NULL)
+    {
+        q->rear = NULL;
+    }
     q->count--;
     free(tmp);
     return true;
@@ -354,6 +366,7 @@ void *send_car_to_enter(void *enter_num)
     // mutex lock this thread
     pthread_mutex_lock(&entrance->LPR_mutex); // ensure this bahaviour is as expected and doesn't fully freeze
     char LPR[7];
+    LPR[6] = 0;
     while(1)
     {
         fire_alarms_active(); // check no fire alarms are active before 
@@ -442,13 +455,54 @@ void *toggleGate(void* enter_num)
 
 }
 
+void *toggleGateExit(void* exit_num) 
+{
+    // getting entrance number
+    int num = *(int *)exit_num;
+    Exit_t *exit = &CP.shm_ptr->Exit[num];
+
+    // initial lock of boom gate mutex
+    pthread_mutex_lock(&exit->BOOM_mutex);
+    
+    // infinit loop
+    while(1)
+    {
+        Assignment_Sleep(10); // 10ms wait as per requirement
+        // if 'R' then 'O'
+        if(exit->BOOM_status == 'R')
+        {
+            // change
+            exit->BOOM_status = 'O';
+            printf("Boom status is set to %c\n",exit->BOOM_status);
+
+        }
+        // (else) if 'L' then 'C'
+        else if(exit->BOOM_status == 'L')
+        {
+            // change
+            exit->BOOM_status = 'C';
+            printf("Boom status is set to %c\n",exit->BOOM_status);
+        }
+
+        pthread_mutex_unlock(&exit->BOOM_mutex);
+        // return a signal saying boom gate status has changed
+        pthread_cond_signal(&exit->BOOM_cond);
+        
+        pthread_mutex_lock(&exit->BOOM_mutex);
+        printf("BOOM mutex unlocked and waiting for signal\n");
+        pthread_cond_wait(&exit->BOOM_cond, &exit->BOOM_mutex);
+    }
+
+}
+
 /*-----------------------------------------Level navigation FUNCTIONS------------------------------------------------*/
 
-void *level_navigation(void *enter_num)
+void *levelNavigation(void *enter_num)
 {
     // get enterance number cast from void
     int num = *(int *)enter_num;
     Enter_t *entrance = &CP.shm_ptr->Enter[num];
+    printf("got the entrance\n");
 
     // predeclare level variable
     Level_t *level;
@@ -476,15 +530,42 @@ void *level_navigation(void *enter_num)
 
         }
         // removing the car from entrace
+        pthread_mutex_lock(&entrance->LPR_mutex);
         entrance->LPR_reading[0] = 0;
-        pthread_mutex_unlock(&entrance->info_sign_mutex);
-        pthread_cond_signal(&entrance->info_sign_cond);
-        pthread_mutex_lock(&entrance->info_sign_mutex);
+        pthread_mutex_unlock(&entrance->LPR_mutex);
+
+        pthread_cond_signal(&entrance->BOOM_cond);
+
         pthread_cond_wait(&entrance->info_sign_cond, &entrance->info_sign_mutex);
     }
 
 
 }
+
+/*------------------------------------------Car leaving--------------------------------------------------------------*/
+
+void *carLeaving(void *exit_num)
+{
+    // get enterance number cast from void
+    int num = *(int *)exit_num;
+    Exit_t *exit = &CP.shm_ptr->Exit[num];
+    int inside_time;
+
+    pthread_mutex_lock(&exit->LPR_mutex);
+    // infinite loop
+    while(1)
+    {
+        // random timing
+        inside_time = (int)(floor(rand() % 100) + 100); // range from 100 to 500
+        Assignment_Sleep(inside_time);
+        // letting manager know exit is free
+        pthread_cond_signal(&exit->LPR_cond);
+
+        // non busy waiting
+        pthread_cond_wait(&exit->LPR_cond, &exit->LPR_mutex);
+    }
+}
+
 /*------------------------------------------FIRE ALARM----------------------------------------*/
 
 void generateTemperature() {

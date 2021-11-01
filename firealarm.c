@@ -12,19 +12,19 @@ void tempmonitor(int level);
 int shared_mem_init_open( shm_CP_t *shm, const char *shm_key )
 {   
     int memory_opened;
-    memory_opened = EXIT_SUCCESS;
+    memory_opened = 0;
     // opening the shared data, otherwise producing an error
     shm->fd = shm_open(shm_key, O_RDWR, 0);
     if (shm->fd  < 0) 
     {
-        memory_opened = EXIT_FAILURE;
+        memory_opened = 1;
     }
 
     shm->shm_ptr = mmap(0, SHMSZ, PROT_WRITE, MAP_SHARED, shm->fd,0);
     // mapping memory
     if(shm->shm_ptr == (CP_t *) - 1) 
     {
-        memory_opened = EXIT_FAILURE;
+        memory_opened = 1;
     }
 
     //memory sucessfully shared if it has been unchanged by above ifs
@@ -195,5 +195,5 @@ int main( void ) {
         //munmap(&shm,SHMSZ);
     }
 
-    return EXIT_SUCCESS;
+    return 0;
 }

@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <stdlib.h>
 #include <time.h>
 #include <pthread.h>
 #include <sys/mman.h>
@@ -13,7 +12,7 @@
 #define NUM_ENTERS 5
 #define NUM_EXITS 5
 #define LPRSZ 6
-#define LEVEL_CAPACITY 20
+#define LEVEL_CAPACITY 1
 #define LPFILE "plates.txt"
 #define QUEUE_LENGTH 10
 
@@ -21,7 +20,7 @@
 
 
 
-
+// ---------------------------------------shared memory --------------------------------------------------------
 
 // Struct for Entrance
 typedef struct Enter
