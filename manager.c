@@ -83,7 +83,7 @@ int main()
     }
     // allocate plates to hash table
     LPR_to_htab(&h);
-    if(DEBUG){htab_print(&h);} // debug print
+    //if(DEBUG){htab_print(&h);} // debug print
 
 
     int num = 0;
@@ -475,6 +475,7 @@ void *enterFunc(void *enter_num)
                 entrance->info_sign_status = '1' + level_num;
                 pthread_mutex_unlock(&entrance->info_sign_mutex);
                 if(DEBUG) {printf("sign set to %c\n", entrance->info_sign_status);}
+                Assignment_Sleep(5);
 
                 /*-----------------RAISING BOOM GATE ----------------*/ 
 
@@ -543,11 +544,12 @@ void *enterFunc(void *enter_num)
                 pthread_cond_wait(&entrance->info_sign_cond,&entrance->info_sign_mutex);
                 // unlocking mutex for other cars
                 pthread_mutex_unlock(&entrance->info_sign_mutex);
+                
             }
             // send a signal saying im empty
             pthread_cond_signal(&entrance->LPR_cond);
         }  
-
+        Assignment_Sleep(100);
         if(DEBUG) {printf("waiting for a new car to be at the entrance\n");}
         pthread_cond_wait(&entrance->LPR_cond, &entrance->LPR_mutex);
 

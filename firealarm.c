@@ -165,7 +165,7 @@ void tempmonitor( int level )
 
 int main( void ) 
 /*****************************************************************************
- * @brief   TODO
+ * @brief   Main loop for the firealarm
  * @author  Jonathan Paton, Maxime Stuehrenberg
  * @date    01/11/2021
  * @return  TODO
@@ -189,10 +189,6 @@ int main( void )
             usleep(2000); //wait 2ms between next reading
         }
 
-        // TODO: Remove this 
-        //alarm flag true, raise alarm.
-        //fprintf(stderr,"\nALARM TRIGGERED\n")
-
         // Activate alarms on all levels
         for (int i = 0; i < NUM_LEVELS; i++) {
             pthread_mutex_lock(&shm.shm_ptr->Level[i].LPR_mutex); //lock level
@@ -202,6 +198,7 @@ int main( void )
         }
         
         // Open up all boom gates
+
         //open exits
         for (int i = 0; i < NUM_EXITS; i++) {
             char gateState = shm.shm_ptr->Exit[i].BOOM_status;

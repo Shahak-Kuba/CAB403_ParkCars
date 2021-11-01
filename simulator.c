@@ -13,11 +13,13 @@
 
 /* ------------------------------------------------------Definitions----------------------------------------------------*/
 
+#define DEBUG false
+
 
 void Assignment_Sleep(int time_in_milli_sec);
 
 // simulation variable
-int car_list_chance = 50;
+int car_list_chance = 60;
 
 // shared mem variables
 shm_CP_t CP;
@@ -164,7 +166,7 @@ int shared_mem_init(shm_CP_t* shm, char* shm_key)
     }
 
     // if exited with true then shared memory has been created
-    printf("shared mem pointer: %p\n", shm->shm_ptr);
+    if(DEBUG){printf("shared mem pointer: %p\n", shm->shm_ptr);}
 
     // initialising every mutex and cond variables
     pthread_mutexattr_t attr_mutex;
@@ -245,7 +247,7 @@ void Assignment_Sleep(int time_in_milli_sec)
  *****************************************************************************/
 {
     int time = time_in_milli_sec * 1000;
-    printf("waiting %d ms\n", time_in_milli_sec);
+    if(DEBUG){printf("waiting %d ms\n", time_in_milli_sec);}
     usleep(time);
 }
 
@@ -310,7 +312,7 @@ void enqueue(queue *q, char LP[7])
     }
     else
     {
-        printf("Queue is full.... if this prints it's a bad sign :(( \n");
+        if(DEBUG){printf("Queue is full.... if this prints it's a bad sign :(( \n");}
     }
 
     //printf("%s\n", LP);
@@ -360,7 +362,7 @@ void display(NP_t *head)
 {
     if(head == NULL)
     {
-        printf("NULL\n");
+        if(DEBUG){printf("NULL\n");}
     }
     else
     {
@@ -442,7 +444,7 @@ void *generate_car_queue(void* arg)
             //enqueue car
             enqueue(q, LPlate);
         }
-        display(q->front);
+        if(DEBUG){display(q->front);}
         pthread_cond_wait(&car_queue_cond, &car_queue_mutex);
         //printf("%p", arg); /// Only here cause get error dunno how to not parse an arg
     }
@@ -478,23 +480,23 @@ void *send_car_to_enter(void *enter_num)
             {
                 //copy LPR
                 memcpy(entrance->LPR_reading, LPR, 6);
-                printf("%d enterance got the car %s\n", num+1, LPR);
+                if(DEBUG){printf("%d enterance got the car %s\n", num+1, LPR);}
 
                 // send signal to &entrance->LPR_cond saying recieved a car
                 pthread_cond_signal(&entrance->LPR_cond);
-                printf("Signal sent to entrance LPR\n");
+                if(DEBUG){printf("Signal sent to entrance LPR\n");}
 
                 // send signal to generator function make a new car
                 pthread_cond_signal(&car_queue_cond);
-                printf("Signal sent to carqueue gen\n");
+                if(DEBUG){printf("Signal sent to carqueue gen\n");}
             }
             // lock the queue so other entrances can dequeue a car
             pthread_mutex_unlock(&car_dequeue_mutex);
         }
 
-        display(q->front);
+        if(DEBUG){display(q->front);}
         // waiting for car to leave the entrance
-        printf("waiting for entrance to be empty\n");
+        if(DEBUG){printf("waiting for entrance to be empty\n");}
         pthread_cond_wait(&entrance->LPR_cond, &entrance->LPR_mutex);
     }
 }
@@ -511,7 +513,7 @@ void init_gates()
 {
 
     CP_t *carpark = CP.shm_ptr;
-    printf("%p\n", carpark);
+    if(DEBUG){printf("%p\n", carpark);}
     for(int i = 0; i < NUM_LEVELS; i++)
     {
         carpark->Enter[i].info_sign_status = 'X';
@@ -546,7 +548,7 @@ void *toggleGate(void* enter_num)
         {
             // change
             entrance->BOOM_status = 'O';
-            printf("Boom status is set to %c\n",entrance->BOOM_status);
+            if(DEBUG){printf("Boom status is set to %c\n",entrance->BOOM_status);}
 
         }
         // (else) if 'L' then 'C'
@@ -554,7 +556,7 @@ void *toggleGate(void* enter_num)
         {
             // change
             entrance->BOOM_status = 'C';
-            printf("Boom status is set to %c\n",entrance->BOOM_status);
+            if(DEBUG){printf("Boom status is set to %c\n",entrance->BOOM_status);}
         }
 
         pthread_mutex_unlock(&entrance->BOOM_mutex);
@@ -562,7 +564,7 @@ void *toggleGate(void* enter_num)
         pthread_cond_signal(&entrance->BOOM_cond);
         
         pthread_mutex_lock(&entrance->BOOM_mutex);
-        printf("BOOM mutex unlocked and waiting for signal\n");
+        if(DEBUG){printf("BOOM mutex unlocked and waiting for signal\n");}
         pthread_cond_wait(&entrance->BOOM_cond, &entrance->BOOM_mutex);
     }
 
@@ -594,7 +596,7 @@ void *toggleGateExit(void* exit_num)
         {
             // change
             exit->BOOM_status = 'O';
-            printf("Exit boom status is set to %c\n",exit->BOOM_status);
+            if(DEBUG){printf("Exit boom status is set to %c\n",exit->BOOM_status);}
 
         }
         // (else) if 'L' then 'C'
@@ -602,7 +604,7 @@ void *toggleGateExit(void* exit_num)
         {
             // change
             exit->BOOM_status = 'C';
-            printf("Exit boom status is set to %c\n",exit->BOOM_status);
+            if(DEBUG){printf("Exit boom status is set to %c\n",exit->BOOM_status);}
         }
 
         pthread_mutex_unlock(&exit->BOOM_mutex);
@@ -610,7 +612,7 @@ void *toggleGateExit(void* exit_num)
         pthread_cond_signal(&exit->BOOM_cond);
         
         pthread_mutex_lock(&exit->BOOM_mutex);
-        printf("BOOM mutex unlocked and waiting for signal\n");
+        if(DEBUG){printf("BOOM mutex unlocked and waiting for signal\n");}
         pthread_cond_wait(&exit->BOOM_cond, &exit->BOOM_mutex);
     }
 
@@ -639,9 +641,9 @@ void *level_navigation(void *enter_num)
     {
         // check if firealarms are active before doing anything
         fire_alarms_active(); 
-
+        
         // check if the car is allowed in
-        printf("checking sign status\n");
+        if(DEBUG){printf("checking sign status\n");}
         if(entrance->info_sign_status != 'X')
         {
             Assignment_Sleep(10);
@@ -653,7 +655,7 @@ void *level_navigation(void *enter_num)
             pthread_mutex_lock(&level->LPR_mutex);
             memcpy(level->LPR_reading, entrance->LPR_reading, 6);
             pthread_mutex_unlock(&level->LPR_mutex);
-            printf("Level %d recieved LPR: %s\n", level_num, level->LPR_reading);
+            if(DEBUG){printf("Level %d recieved LPR: %s\n", level_num, level->LPR_reading);}
 
         }
         // removing the car from entrace
@@ -661,6 +663,8 @@ void *level_navigation(void *enter_num)
 
         pthread_mutex_unlock(&entrance->info_sign_mutex);
         pthread_cond_signal(&entrance->info_sign_cond);
+
+        
 
         pthread_mutex_lock(&entrance->info_sign_mutex);
         pthread_cond_wait(&entrance->info_sign_cond, &entrance->info_sign_mutex);
@@ -781,7 +785,7 @@ void get_input()
  * @note    
  *****************************************************************************/
 {
-    printf("Input function thread started\n");
+    if(DEBUG){printf("Input function thread started\n");}
     for (;;) {
         int charinput = 0;
         charinput = fgetc(stdin);
