@@ -446,6 +446,45 @@ void *toggleGate(void* enter_num)
 
 }
 
+void *toggleGateExit(void* enter_num) 
+{
+    // getting entrance number
+    int entrance_num = *(int *)enter_num;
+    Enter_t *entrance = &CP.shm_ptr->Enter[entrance_num];
+
+    // initial lock of boom gate mutex
+    pthread_mutex_lock(&entrance->BOOM_mutex);
+    
+    // infinit loop
+    while(1)
+    {
+        Assignment_Sleep(10); // 10ms wait as per requirement
+        // if 'R' then 'O'
+        if(entrance->BOOM_status == 'R')
+        {
+            // change
+            entrance->BOOM_status = 'O';
+            printf("Boom status is set to %c\n",entrance->BOOM_status);
+
+        }
+        // (else) if 'L' then 'C'
+        else if(entrance->BOOM_status == 'L')
+        {
+            // change
+            entrance->BOOM_status = 'C';
+            printf("Boom status is set to %c\n",entrance->BOOM_status);
+        }
+
+        pthread_mutex_unlock(&entrance->BOOM_mutex);
+        // return a signal saying boom gate status has changed
+        pthread_cond_signal(&entrance->BOOM_cond);
+        
+        pthread_mutex_lock(&entrance->BOOM_mutex);
+        printf("BOOM mutex unlocked and waiting for signal\n");
+        pthread_cond_wait(&entrance->BOOM_cond, &entrance->BOOM_mutex);
+    }
+
+}
 /*-----------------------------------------Level navigation FUNCTIONS------------------------------------------------*/
 
 void *level_navigation(void *enter_num)
@@ -491,6 +530,25 @@ void *level_navigation(void *enter_num)
 
 
 }
+
+/*-------------------------------------------EXIT ROUTINE-------------------------------------------*/
+void *carLeave(void *exit_num)
+{
+    // getting entrance number
+    int num = *(int *)exit_num;
+    Exit_t *exit = &CP.shm_ptr->Exit[num];
+    
+    pthread_mutex_lock(&exit->LPR_mutex);
+    while(1)
+    {
+        // send a signal to say exit is empty
+        pthread_cond_signal(&exit->LPR_cond);
+
+
+        pthread_cond_wait(&exit->LPR_cond, &exit->LPR_mutex);
+    }
+}
+
 /*------------------------------------------FIRE ALARM----------------------------------------*/
 
 void generateTemperature() {

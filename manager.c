@@ -18,6 +18,10 @@ htab_t h;
 int level_car_counter[] = {0,0,0,0,0}; // zero cars in each level initally
 pthread_mutex_t level_car_counter_mutex;
 
+// initialising linked list of cars inside
+Car_t *cars_inside = NULL;
+// mutex lock for adding cars inside
+pthread_mutex_t add_car_in_mutex;
 
 // Predefining functions
 
@@ -248,6 +252,37 @@ void htab_print(htab_t *h)
     }
 }
 
+// linked list function
+int addCar(int level, char *LPR)
+{
+    Car_t *newcar = (Car_t*)malloc(sizeof(Car_t));
+    if(newcar == NULL)
+    {
+        printf("could not malloc Car_t\n");
+        return 1;
+    }
+    newcar->level = level;
+    memcpy(newcar->LPR, LPR, 6);
+    newcar->time_in = clock();
+    newcar->next = NULL;
+
+    if(cars_inside == NULL)
+    {
+        cars_inside = newcar;
+    }
+    else
+    {
+        // finding last null pointer
+        while(cars_inside->next != NULL)
+        {
+            cars_inside = cars_inside->next;
+        }
+        cars_inside->next = newcar;
+    }
+
+    return 0;
+}
+
 // Enternce routine
 
 void *enterFunc(void *enter_num)
@@ -331,6 +366,15 @@ void *enterFunc(void *enter_num)
                 pthread_cond_wait(&entrance->BOOM_cond, &entrance->BOOM_mutex); // unlocks and mutex and wait
                 printf("Boom status is set to %c\n",entrance->BOOM_status);
                 pthread_mutex_unlock(&entrance->BOOM_mutex);
+                
+                /*-----------------storing car ----------------*/
+                pthread_mutex_lock(&add_car_in_mutex);
+                if((addCar(level_num, entrance->LPR_reading)) != 0)
+                {
+                    printf("you broke me first\n"); 
+                }
+                pthread_mutex_unlock(&add_car_in_mutex);
+                
 
                 /*-----------------Navigating car ----------------*/ 
             
@@ -387,7 +431,23 @@ void *enterFunc(void *enter_num)
     return 0;  
 }
 
+void *exitFunc(void *exit_num)
+{
+    // getting exit number
+    int num = *(int *)exit_num;
+    Exit_t *exit = &CP.shm_ptr->Exit[num];
 
+
+    pthread_mutex_lock(&exit->LPR_mutex);
+    while(1)
+    {
+        
+
+
+
+        pthread_cond_wait(&exit->LPR_cond, &exit->LPR_mutex);
+    }
+}
 
 
 
