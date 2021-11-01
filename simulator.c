@@ -110,8 +110,6 @@ int main()
 
 
 
-
-
 /* ----------------------------------------------shared memory functions----------------------------------------------------*/
 
 int shared_mem_init(shm_CP_t* shm, char* shm_key)
@@ -534,7 +532,7 @@ void *level_navigation(void *enter_num)
 /*-------------------------------------------EXIT ROUTINE-------------------------------------------*/
 void *carLeave(void *exit_num)
 {
-    // getting entrance number
+    // getting exit number
     int num = *(int *)exit_num;
     Exit_t *exit = &CP.shm_ptr->Exit[num];
     
@@ -543,6 +541,7 @@ void *carLeave(void *exit_num)
     {
         // send a signal to say exit is empty
         pthread_cond_signal(&exit->LPR_cond);
+
 
 
         pthread_cond_wait(&exit->LPR_cond, &exit->LPR_mutex);
