@@ -274,6 +274,7 @@ void *enterFunc(void *enter_num)
             printf("car at the entrance\n");
             // copying new LP to the temp variable
             memcpy(temp_LPR, entrance->LPR_reading, 6);
+            level_num = -1;
 
             // check if car is allowed in
             if(htab_find(&h, temp_LPR) != NULL){
@@ -293,7 +294,7 @@ void *enterFunc(void *enter_num)
                 // check if carpark is full (should not happen but incase it does)
                 if(level_num == -1)
                 {
-                    printf("Carpark is full idiot!");
+                    printf("Carpark is full idiot!\n");
                     break;
                 }
                 // release level counter mutex 
@@ -368,6 +369,10 @@ void *enterFunc(void *enter_num)
                 
                 // sending signal to level LPR
                 pthread_cond_signal(&entrance->info_sign_cond);
+                // waiting for a signal saying the car has gone in
+                pthread_cond_wait(&entrance->info_sign_cond,&entrance->info_sign_mutex);
+                // unlocking mutex for other cars
+                pthread_mutex_unlock(&entrance->info_sign_mutex);
             }
             // send a signal saying im empty
             pthread_cond_signal(&entrance->LPR_cond);
