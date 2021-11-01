@@ -1,6 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
 #include <pthread.h>
 #include <sys/mman.h>
 #include <sys/types.h>
@@ -16,11 +13,6 @@
 #define LEVEL_CAPACITY 20
 #define LPFILE "plates.txt"
 #define QUEUE_LENGTH 10
-
-
-
-
-
 
 
 // Struct for Entrance

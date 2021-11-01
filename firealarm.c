@@ -12,19 +12,19 @@ void tempmonitor(int level);
 int shared_mem_init_open( shm_CP_t *shm, const char *shm_key )
 {   
     int memory_opened;
-    memory_opened = EXIT_SUCCESS;
+    memory_opened = 0;
     // opening the shared data, otherwise producing an error
     shm->fd = shm_open(shm_key, O_RDWR, 0);
     if (shm->fd  < 0) 
     {
-        memory_opened = EXIT_FAILURE;
+        memory_opened = 1;
     }
 
     shm->shm_ptr = mmap(0, SHMSZ, PROT_WRITE, MAP_SHARED, shm->fd,0);
     // mapping memory
-    if(shm->shm_ptr == (CP_t *) - 1) 
+    if(shm->shm_ptr == MAP_FAILED) 
     {
-        memory_opened = EXIT_FAILURE;
+        memory_opened = 1;
     }
 
     //memory sucessfully shared if it has been unchanged by above ifs
@@ -80,7 +80,7 @@ void tempmonitor( int level ) {
     int hightemps = 0; //Count number of high temps from last 30 readings
     int16_t temp = 0; //temperature taken from sensor
     int16_t buffer[MEDIAN_WINDOW]; //local array to be destructively changed to find median
-    
+    int end_index;
     temp = shm.shm_ptr->Level[level].temp_sensor; //take value currently stored in temp
 
     //shift existing readings across to make space for new reading
@@ -97,8 +97,9 @@ void tempmonitor( int level ) {
     sort(buffer, MEDIAN_WINDOW);
     mediantemp = get_median(buffer,MEDIAN_WINDOW);
 
+    end_index = (int)TEMPCHANGE_WINDOW + (int)MEDIAN_WINDOW -1;
     //shift smoothed temperature readings across to make room for new reading
-    for(int i = TEMPCHANGE_WINDOW + ( MEDIAN_WINDOW -1); i >= MEDIAN_WINDOW; i--) {
+    for(int i = end_index; i >= MEDIAN_WINDOW; i--) {
         tempArray[level][i] = tempArray[level][i-1];     
     }
     //add new median reading to array
@@ -119,7 +120,7 @@ void tempmonitor( int level ) {
     // If the newest temp is >= 8 degrees higher than the oldest
     // temp (out of the last 30), this is a high rate-of-rise.
     // Additionally, Make sure oldest temperature stored is not 0 to prevent initial readings causing trigger 
-    if ( tempArray[level][MEDIAN_WINDOW] - tempArray[level][(TEMPCHANGE_WINDOW + MEDIAN_WINDOW) -1] >= 8 && tempArray[level][TEMPCHANGE_WINDOW + (MEDIAN_WINDOW -1)] != 0) {
+    if ( (tempArray[level][MEDIAN_WINDOW] - tempArray[level][(TEMPCHANGE_WINDOW + MEDIAN_WINDOW) -1] >= 8) && (tempArray[level][TEMPCHANGE_WINDOW + (MEDIAN_WINDOW -1)] != 0) ) {
         alarm_active = 1;
     }
 
@@ -143,7 +144,7 @@ int main( void ) {
             usleep(2000); //wait 2ms between next reading
         }
         //alarm flag true, raise alarm.
-        fprintf(stderr,"\nALARM TRIGGERED\n");
+        //fprintf(stderr,"\nALARM TRIGGERED\n")
 
         // Activate alarms on all levels
         for (int i = 0; i < NUM_LEVELS; i++) {
@@ -195,5 +196,5 @@ int main( void ) {
         //munmap(&shm,SHMSZ);
     }
 
-    return EXIT_SUCCESS;
+    return 0;
 }
