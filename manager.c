@@ -8,7 +8,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
-#include <math.h>
 #include "datas.h"
 
 // Global variables
@@ -19,18 +18,8 @@ htab_t h;
 int level_car_counter[] = {0,0,0,0,0}; // zero cars in each level initally
 pthread_mutex_t level_car_counter_mutex;
 
-// define array of linked lists
-Car_t *cars_inside[NUM_LEVELS];
-
-// mutex lock for adding cars inside
-pthread_mutex_t add_car_in_mutex;
-
 
 // Predefining functions
-
-int init_cars_inside(void);
-// adding to array of linked lists func
-int addCar(int level, char *LPR);
 
 void Assignment_Sleep(int time_in_milli_sec);
 
@@ -70,10 +59,6 @@ int main()
     LPR_to_htab(&h);
     htab_print(&h); // debug print
 
-    if((init_cars_inside()) != 0)
-    {
-        printf("error initialising cars\n");
-    }
 
     int num = 0;
 
@@ -263,49 +248,6 @@ void htab_print(htab_t *h)
     }
 }
 
-// Add function
-int addCar(int level, char *LPR)
-{
-    Car_t *newcar = (Car_t *)malloc(sizeof(Car_t));
-    if(newcar == NULL)
-    {
-        printf("could not malloc Car_t\n");
-        return 1;
-    }
-    newcar->level = level;
-    memcpy(newcar->LPR, LPR, 6);
-    newcar->time_in = clock();
-    newcar->time_inside = (int)floor((rand() % 9900) + 100);
-    newcar->next = NULL;
-
-    if(cars_inside[level] == NULL)
-    {
-        cars_inside[level] = newcar;
-    }
-    else
-    {
-        // finding last null pointer
-        while(cars_inside[level]->next != NULL)
-        {
-            cars_inside[level] = cars_inside[level]->next;
-        }
-        cars_inside[level]->next = newcar;
-    }
-    /*
-    printf("LPR: %s, time in: %ld, time inside: %d, level: %d\n", newcar->LPR, newcar->time_in, newcar->time_inside, newcar->level);
-    sleep(3);*/
-    return 0;
-
-}
-
-int init_cars_inside()
-{
-    for(int i = 0; i < NUM_LEVELS; i++)
-    {
-        cars_inside[i] = NULL;
-    }
-    return 0;
-}
 // Enternce routine
 
 void *enterFunc(void *enter_num)
@@ -338,7 +280,6 @@ void *enterFunc(void *enter_num)
 
                 // find level number and incrementing
                 pthread_mutex_lock(&level_car_counter_mutex);
-                level_num = -1; // resetting level to be -1
                 for (int i = 0; i < NUM_LEVELS; i++)
                 {
                     if(level_car_counter[i] < LEVEL_CAPACITY)
@@ -357,7 +298,6 @@ void *enterFunc(void *enter_num)
                 }
                 // release level counter mutex 
                 pthread_mutex_unlock(&level_car_counter_mutex);
-                printf("added car\n");
 
 
                 // checking cars are going to the right level
@@ -391,16 +331,6 @@ void *enterFunc(void *enter_num)
                 printf("Boom status is set to %c\n",entrance->BOOM_status);
                 pthread_mutex_unlock(&entrance->BOOM_mutex);
 
-                /* -----------------------Storing Cars--------------------*/
-                pthread_mutex_lock(&add_car_in_mutex);
-                
-                // adding that new car to the tail of the linked list
-                if((addCar(level_num, entrance->LPR_reading)) != 0)
-                {
-                    printf("you broke me first\n"); 
-                }
-
-                pthread_mutex_unlock(&add_car_in_mutex);
                 /*-----------------Navigating car ----------------*/ 
             
                 // sending signal to info sign cond
@@ -452,11 +382,6 @@ void *enterFunc(void *enter_num)
     return 0;  
 }
 
-// Exit routine
-void *exitFunc(void *exit_num)
-{
-
-}
 
 
 

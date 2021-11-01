@@ -12,7 +12,7 @@
 #define NUM_ENTERS 5
 #define NUM_EXITS 5
 #define LPRSZ 6
-#define LEVEL_CAPACITY 1
+#define LEVEL_CAPACITY 20
 #define LPFILE "plates.txt"
 #define QUEUE_LENGTH 10
 
