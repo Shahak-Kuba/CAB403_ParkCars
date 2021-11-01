@@ -215,12 +215,12 @@ int main( void )
         //open entrances
         for (int i = 0; i < NUM_ENTERS; i++) {
             char gateState = shm.shm_ptr->Enter[i].BOOM_status;
-            pthread_mutex_lock(&shm.shm_ptr->Enter[i].BOOM_mutex); //lock exit
-            if (gateState == 'C') { //if gate already open dont need to change.
-                shm.shm_ptr->Enter[i].BOOM_status = 'R'; //set gate to raise
+            pthread_mutex_lock(&shm.shm_ptr->Enter[i].BOOM_mutex); //lock entrance
+            if (gateState == 'C') { //if gate already open dont need to change it's state.
+                shm.shm_ptr->Enter[i].BOOM_status = 'R'; //otherwise, set gate to raise
                 pthread_cond_broadcast(&shm.shm_ptr->Enter[i].BOOM_cond); //send condition
             }
-            pthread_mutex_unlock(&shm.shm_ptr->Enter[i].BOOM_mutex); //unlock exit
+            pthread_mutex_unlock(&shm.shm_ptr->Enter[i].BOOM_mutex); //unlock entrance
         }	
 
         // Show evacuation message on an endless loop
@@ -238,10 +238,6 @@ int main( void )
                 usleep(20000); //sleep for 20ms between letters
             }
         }
-        //clean exit
-        //shm_unlink(&shm);
-        //munmap(&shm,SHMSZ);
     }
-
     return 0;
 }
