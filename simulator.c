@@ -116,6 +116,8 @@ int main()
     
     pthread_create(&gate_thread, NULL, toggleGate, (void *)&num);
 
+    sleep(3); // sleep to generate cars and turn on manager
+
     pthread_create(&level_nav_thread, NULL, level_navigation, (void *)&num);
 
     pthread_create(&input_thread, NULL, (void *)get_input, NULL);
@@ -646,7 +648,7 @@ void *level_navigation(void *enter_num)
         if(DEBUG){printf("checking sign status\n");}
         if(entrance->info_sign_status != 'X')
         {
-            Assignment_Sleep(10);
+            //Assignment_Sleep(10);
             // getting the level number
             level_num = (int) entrance->info_sign_status - '1';
             // getting the level struct
@@ -658,8 +660,11 @@ void *level_navigation(void *enter_num)
             if(DEBUG){printf("Level %d recieved LPR: %s\n", level_num, level->LPR_reading);}
 
         }
+
+
         // removing the car from entrace
         entrance->LPR_reading[0] = 0;
+
 
         pthread_mutex_unlock(&entrance->info_sign_mutex);
         pthread_cond_signal(&entrance->info_sign_cond);
