@@ -11,6 +11,9 @@
 #include <math.h>
 #include "datas.h"
 
+/* ------------------------------------------------------Definitions----------------------------------------------------*/
+
+
 void Assignment_Sleep(int time_in_milli_sec);
 
 // simulation variable
@@ -75,7 +78,18 @@ pthread_t gate_thread;
 pthread_t level_nav_thread;
 pthread_t create_car_thread;
 
+/* ------------------------------------------------------ Main ----------------------------------------------------*/
+
+
 int main()
+/*****************************************************************************
+ * @brief   Main loop for simulator.c
+ * @author  Shaq Kuba
+ * @date    01/11/2021
+ * @return  int (EXIT_SUCCESS)
+ * @arg     NULL
+ * @note    
+ *****************************************************************************/
 {
     pthread_mutex_init(&rand_mutex, NULL);
     printf("Enter F to trigger Creeping Fire Alarm Event\n");
@@ -109,10 +123,20 @@ int main()
 }
 
 
-
-/* ----------------------------------------------shared memory functions----------------------------------------------------*/
+/* ---------------------------------------------- shared memory functions ----------------------------------------------------*/
 
 int shared_mem_init(shm_CP_t* shm, char* shm_key)
+/*****************************************************************************
+ * @brief   Creates a shared memory location to be used by manager and firealarm,
+ *          Initialises threads for Entrances, Exits, Levels 
+ * @author  Shaq Kuba
+ * @date    01/11/2021
+ * @return  int (EXIT_SUCCESS)
+ * @arg     shm_CP_t* shm: pointer struct containing all car park data
+ *          char* shm_key: key to map memory to
+ * @note    
+ *
+ *****************************************************************************/
 {
     shm_unlink(shm_key);// making sure key is not linked to shm
     shm->key = shm_key;
@@ -176,14 +200,12 @@ int shared_mem_init(shm_CP_t* shm, char* shm_key)
     }
 
     // Exits
-    for(int i = 0; i < NUM_ENTERS; i++)
+    for(int i = 0; i < NUM_EXITS; i++)
     {
         Exit_t *exit = &CP.shm_ptr->Exit[i];
         // conditional variables
         pthread_cond_init(&exit->LPR_cond, &attr_cond);
         pthread_cond_init(&exit->BOOM_cond, &attr_cond);
-
-
         // mutex's
         pthread_mutex_init(&exit->BOOM_mutex, &attr_mutex);
         pthread_mutex_init(&exit->LPR_mutex, &attr_mutex);
@@ -192,8 +214,16 @@ int shared_mem_init(shm_CP_t* shm, char* shm_key)
     return(EXIT_SUCCESS);
 }
 
-// clearing memory
-void clear_memory( shm_CP_t* shm ) {
+void clear_memory( shm_CP_t* shm ) 
+/*****************************************************************************
+ * @brief   Unmaps and unlinks a memory location; 
+ * @author  Shaq Kuba
+ * @date    01/11/2021
+ * @return  void
+ * @arg     shm_CP_t* shm: pointer of shared memory to clear
+ * @note    
+ *****************************************************************************/
+{
     // Remove the shared memory object.
     munmap(shm->shm_ptr, sizeof(CP_t));
     shm_unlink(KEY);
@@ -201,17 +231,34 @@ void clear_memory( shm_CP_t* shm ) {
     shm->shm_ptr = NULL;
 }
 
-/* ----------------------------------------------car simulation functions----------------------------------------------------*/
+/* ---------------------------------------------- car simulation functions ----------------------------------------------------*/
 
 void Assignment_Sleep(int time_in_milli_sec)
+/*****************************************************************************
+ * @brief   Sleeps for a specified number of milliseconds
+ * @author  Shaq Kuba
+ * @date    01/11/2021
+ * @return  void
+ * @arg     int time_in_milli_sec: how long to wait for in milliseconds
+ * @note    
+ *****************************************************************************/
 {
     int time = time_in_milli_sec * 1000;
     printf("waiting %d ms\n", time_in_milli_sec);
     usleep(time);
 }
 
-// Car queue functions
+/* ------------------------------------------------ car queue functions--------------------------------------------------------*/
+
 void initialize(queue *q)
+/*****************************************************************************
+ * @brief   Initialises a given queue
+ * @author  Maxime Stuehrenberg
+ * @date    01/11/2021
+ * @return  void
+ * @arg     queue *q: the queue to initialize
+ * @note    
+ *****************************************************************************/
 {
     q->count = 0;
     q->front = NULL;
@@ -219,11 +266,27 @@ void initialize(queue *q)
 }
 
 int isempty(queue *q)
+/*****************************************************************************
+ * @brief   Checks whether a given queue is empty
+ * @author  Maxime Stuehrenberg
+ * @date    01/11/2021
+ * @return  int: 0 if false, 1 if true
+ * @arg     queue *q: the queue to check
+ * @note    
+ *****************************************************************************/
 {
     return (q->rear == NULL);
 }
 
 void enqueue(queue *q, char LP[7])
+/*****************************************************************************
+ * @brief   Enqueues a given license plate into a NP_t struct into the given queue
+ * @author  Maxime Stuehrenberg, Shaq Kuba
+ * @date    01/11/2021
+ * @return  void
+ * @arg     queue *q: the queue to add a number plate to
+ * @note    
+ *****************************************************************************/
 {
     if (q->count < QUEUE_LENGTH)
     {
@@ -253,6 +316,18 @@ void enqueue(queue *q, char LP[7])
 }
 
 bool dequeue(queue *q, char LP[7])
+/*****************************************************************************
+ * @brief   Dequeues from a given queue and allocates the removed number plate
+ *          to a given char * address
+ * @author  Shaq Kuba, Maxime Stuehrenberg
+ * @date    01/11/2021
+ * @return  bool: 
+ *          - false if there was no item to dequeue
+ *          - true if the first element was successfuly dequeued
+ * @arg     queue *q: the queue to check, 
+ *          char LP[7]: to store the dequeued license plate in
+ * @note    
+ *****************************************************************************/
 {
     if(q->front == NULL)
     {
@@ -273,6 +348,14 @@ bool dequeue(queue *q, char LP[7])
 }
 
 void display(NP_t *head)
+/*****************************************************************************
+ * @brief   Display all nodes in the queue starting from the inputted parameter
+ * @author  Shaq Kuba, Maxime Stuehrenberg
+ * @date    01/11/2021
+ * @return  void
+ * @arg     NP_t *head: the node to begin displaying from 
+ * @note    
+ *****************************************************************************/
 {
     if(head == NULL)
     {
@@ -288,10 +371,19 @@ void display(NP_t *head)
 /*-----------------------------------CAR GENERATION AND SEND TO GATE ----------------------------------------*/
 
 void LPR_generator(char LPR[LPRSZ+1]) 
+/*****************************************************************************
+ * @brief   Generates a licence plate randomly based on a car_list_chance
+ * @author  Jonathan Paton, Shaq Kuba, Maxime Stuehrenberg
+ * @date    01/11/2021
+ * @return  void
+ * @arg     char LPR[LPRSZ+1]: license plate to modify in memory and allocate to
+ * @note    car_list_chance of 100: all number plates are from LPFILE
+ *          car_list_chance of 0: all number plates are randomly generated
+ *****************************************************************************/
 {
     pthread_mutex_lock(&rand_mutex);
-    if (rand() % 100 <= car_list_chance) {
-        
+    if (rand() % 100 <= car_list_chance) 
+    {
         //Use car from plates.txt
         //Measure Number of plates in file.
         FILE* file_ptr = fopen(LPFILE,"r");
@@ -324,6 +416,14 @@ void LPR_generator(char LPR[LPRSZ+1])
 }
 
 void *generate_car_queue(void* arg)
+/*****************************************************************************
+ * @brief   Generates a car and sends it to the entrance
+ * @author  Shaq Kuba
+ * @date    01/11/2021
+ * @return  void
+ * @arg     void* arg: gets converted to a queue pointer type
+ * @note    This is a thread function
+ *****************************************************************************/
 {
     queue *q = (queue *) arg;
     pthread_mutex_lock(&car_queue_mutex);
@@ -348,6 +448,14 @@ void *generate_car_queue(void* arg)
 }
 
 void *send_car_to_enter(void *enter_num)
+/*****************************************************************************
+ * @brief   Sends a car through to an enrance
+ * @author  Shaq Kuba
+ * @date    01/11/2021
+ * @return  void
+ * @arg     void* enter_num: gets converted to an int denoting which entrance
+ * @note    This is a thread function
+ *****************************************************************************/
 {
     // get level cast from void
     int num = *(int *)enter_num;
@@ -392,6 +500,13 @@ void *send_car_to_enter(void *enter_num)
 
 /*-----------------------------------------BOOM GATE FUNCTIONS------------------------------------------------*/
 void init_gates()
+/*****************************************************************************
+ * @brief   Initializes info sign status to 'X' and boom gates to 'C' (closed)
+ * @author  Shaq Kuba
+ * @date    01/11/2021
+ * @return  void
+ * @arg     void
+ *****************************************************************************/
 {
 
     CP_t *carpark = CP.shm_ptr;
@@ -405,6 +520,14 @@ void init_gates()
 }
 
 void *toggleGate(void* enter_num) 
+/*****************************************************************************
+ * @brief   Accepts a car from an entrance and opens or closes the boom gate
+ * @author  Shaq Kuba
+ * @date    01/11/2021
+ * @return  void
+ * @arg     void* enter_num: gets converted to an int denoting which entrance
+ * @note    This is a thread function
+ *****************************************************************************/
 {
     // getting entrance number
     int entrance_num = *(int *)enter_num;
@@ -444,48 +567,64 @@ void *toggleGate(void* enter_num)
 
 }
 
-void *toggleGateExit(void* enter_num) 
+void *toggleGateExit(void* exit_num) 
+/*****************************************************************************
+ * @brief   Gets given a signal to either open or close the exit boom gate
+ * @author  Shaq Kuba
+ * @date    01/11/2021
+ * @return  void
+ * @arg     void* exit_num: gets converted to an int denoting which exit
+ * @note    This is a thread function
+ *****************************************************************************/
 {
-    // getting entrance number
-    int entrance_num = *(int *)enter_num;
-    Enter_t *entrance = &CP.shm_ptr->Enter[entrance_num];
+    // getting exit number
+    int num = *(int *)exit_num;
+    Exit_t *exit = &CP.shm_ptr->Exit[num];
 
     // initial lock of boom gate mutex
-    pthread_mutex_lock(&entrance->BOOM_mutex);
+    pthread_mutex_lock(&exit->BOOM_mutex);
     
     // infinit loop
     while(1)
     {
         Assignment_Sleep(10); // 10ms wait as per requirement
         // if 'R' then 'O'
-        if(entrance->BOOM_status == 'R')
+        if(exit->BOOM_status == 'R')
         {
             // change
-            entrance->BOOM_status = 'O';
-            printf("Boom status is set to %c\n",entrance->BOOM_status);
+            exit->BOOM_status = 'O';
+            printf("Exit boom status is set to %c\n",exit->BOOM_status);
 
         }
         // (else) if 'L' then 'C'
-        else if(entrance->BOOM_status == 'L')
+        else if(exit->BOOM_status == 'L')
         {
             // change
-            entrance->BOOM_status = 'C';
-            printf("Boom status is set to %c\n",entrance->BOOM_status);
+            exit->BOOM_status = 'C';
+            printf("Exit boom status is set to %c\n",exit->BOOM_status);
         }
 
-        pthread_mutex_unlock(&entrance->BOOM_mutex);
+        pthread_mutex_unlock(&exit->BOOM_mutex);
         // return a signal saying boom gate status has changed
-        pthread_cond_signal(&entrance->BOOM_cond);
+        pthread_cond_signal(&exit->BOOM_cond);
         
-        pthread_mutex_lock(&entrance->BOOM_mutex);
+        pthread_mutex_lock(&exit->BOOM_mutex);
         printf("BOOM mutex unlocked and waiting for signal\n");
-        pthread_cond_wait(&entrance->BOOM_cond, &entrance->BOOM_mutex);
+        pthread_cond_wait(&exit->BOOM_cond, &exit->BOOM_mutex);
     }
 
 }
 /*-----------------------------------------Level navigation FUNCTIONS------------------------------------------------*/
 
 void *level_navigation(void *enter_num)
+/*****************************************************************************
+ * @brief   Navigates a car from a given entrance to a level where it will park
+ * @author  Shaq Kuba
+ * @date    01/11/2021
+ * @return  void
+ * @arg     void* enter_num: gets converted to an int denoting which entrance
+ * @note    This is a thread function
+ *****************************************************************************/
 {
     // get enterance number cast from void
     int num = *(int *)enter_num;
@@ -531,6 +670,14 @@ void *level_navigation(void *enter_num)
 
 /*-------------------------------------------EXIT ROUTINE-------------------------------------------*/
 void *carLeave(void *exit_num)
+/*****************************************************************************
+ * @brief   Makes a car leave the car park by sending it to an exit
+ * @author  Shaq Kuba
+ * @date    01/11/2021
+ * @return  void
+ * @arg     void* exit_num: gets converted to an int denoting which exit
+ * @note    This is a thread function
+ *****************************************************************************/
 {
     // getting exit number
     int num = *(int *)exit_num;
@@ -550,7 +697,17 @@ void *carLeave(void *exit_num)
 
 /*------------------------------------------FIRE ALARM----------------------------------------*/
 
-void generateTemperature() {
+void generateTemperature() 
+{
+/*****************************************************************************
+ * @brief   Continuously checks a simulated forestate from input_thread
+ *          and modifies level temp_sensors accordingly to simulate a fire
+ * @author  Jonathan Paton, Maxime Stuehrenberg
+ * @date    01/11/2021
+ * @return  void
+ * @arg     void
+ * @note    This is a thread function
+ *****************************************************************************/
     while(1)
     {
         for (int i = 0; i < NUM_LEVELS; i++) {
@@ -564,7 +721,10 @@ void generateTemperature() {
             
             switch(fireState) {
             case 1: //Creep Event (Rising Average)
-                BaseTemp++;
+                if(BaseTemp < 1093) // average fire gets about this hot (moreso just want to stop increasing to avoid overflow)
+                {   
+                    BaseTemp++;
+                } 
                 level->temp_sensor = BaseTemp + tempNoise;
                 break;
 
@@ -582,8 +742,16 @@ void generateTemperature() {
 }
 
 
-// Used to block a thread from doing more if there's a fire detected
 void fire_alarms_active()
+/*****************************************************************************
+ * @brief   Block a thread from doing more if there's a fire detected
+ * @author  Maxime Stuehrenberg
+ * @date    01/11/2021
+ * @return  void
+ * @arg     void
+ * @note    It's assumed that the whole system will be manually reset,
+ *          making the endless for loop acceptible in this case
+ *****************************************************************************/
 {
     
     for(int i = 0; i < NUM_LEVELS; i++)
@@ -603,11 +771,17 @@ void fire_alarms_active()
 /*------------------------------------------USER INPUT-----------------------------------------*/
 
 void get_input()
+/*****************************************************************************
+ * @brief   Waits for a given input from console to trigger events
+ * @author  Jonathan Paton, Maxime Stuehrenberg
+ * @date    01/11/2021
+ * @return  void
+ * @arg     void
+ * @note    
+ *****************************************************************************/
 {
     printf("Input function thread started\n");
-    //main loop
     for (;;) {
-        
         int charinput = 0;
         charinput = fgetc(stdin);
         if (charinput == 'f') {

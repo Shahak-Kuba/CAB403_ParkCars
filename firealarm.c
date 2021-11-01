@@ -10,6 +10,13 @@ void tempmonitor(int level);
 
 //memory initialisation
 int shared_mem_init_open( shm_CP_t *shm, const char *shm_key )
+/*****************************************************************************
+ * @brief   TODO
+ * @author  Jonathan Paton, Maxime Stuehrenberg
+ * @date    01/11/2021
+ * @return  TODO
+ * @arg     TODO
+ *****************************************************************************/
 {   
     int memory_opened;
     memory_opened = 0;
@@ -33,6 +40,13 @@ int shared_mem_init_open( shm_CP_t *shm, const char *shm_key )
 
 // function to sort the array in ascending order
 void sort( int16_t * array , int n )
+/*****************************************************************************
+ * @brief   TODO
+ * @author  Maxime Stuehrenberg
+ * @date    01/11/2021
+ * @return  TODO
+ * @arg     TODO
+ *****************************************************************************/
 { 
     // declare some local variables
     int i;
@@ -51,7 +65,15 @@ void sort( int16_t * array , int n )
 }
 
 // function to calculate the median of the array
-int16_t get_median( int16_t array[] , int n ) {
+int16_t get_median( int16_t array[] , int n ) 
+/*****************************************************************************
+ * @brief   TODO
+ * @author  Maxime Stuehrenberg
+ * @date    01/11/2021
+ * @return  TODO
+ * @arg     TODO
+ *****************************************************************************/
+{
     int16_t median;
     
     if(( n % 2) == 0) {
@@ -65,6 +87,13 @@ int16_t get_median( int16_t array[] , int n ) {
 }
 
 void init_alarms( void )
+/*****************************************************************************
+ * @brief   TODO
+ * @author  Maxime Stuehrenberg
+ * @date    01/11/2021
+ * @return  TODO
+ * @arg     TODO
+ *****************************************************************************/
 {
     // Activate alarms on all levels
     for (int i = 0; i < NUM_LEVELS; i++) {
@@ -75,7 +104,15 @@ void init_alarms( void )
     }
 }
 //temperature monitoring and evaluating for a specific level
-void tempmonitor( int level ) {
+void tempmonitor( int level ) 
+/*****************************************************************************
+ * @brief   TODO
+ * @author  Jonathan Paton, Maxime Stuehrenberg
+ * @date    01/11/2021
+ * @return  TODO
+ * @arg     TODO
+ *****************************************************************************/
+{
     int mediantemp = 0; //Resultant temp from smoothing process
     int hightemps = 0; //Count number of high temps from last 30 readings
     int16_t temp = 0; //temperature taken from sensor
@@ -126,7 +163,15 @@ void tempmonitor( int level ) {
 
 }
 
-int main( void ) {
+int main( void ) 
+/*****************************************************************************
+ * @brief   TODO
+ * @author  Jonathan Paton, Maxime Stuehrenberg
+ * @date    01/11/2021
+ * @return  TODO
+ * @arg     TODO
+ *****************************************************************************/
+{
     const char* key;
     key = KEY;
     int shm_opened;
@@ -143,6 +188,8 @@ int main( void ) {
             }
             usleep(2000); //wait 2ms between next reading
         }
+
+        // TODO: Remove this 
         //alarm flag true, raise alarm.
         //fprintf(stderr,"\nALARM TRIGGERED\n")
 

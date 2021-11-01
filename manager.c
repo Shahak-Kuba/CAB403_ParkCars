@@ -8,7 +8,11 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include "datas.h"
+
+#define DEBUG false
+
 
 // Global variables
 shm_CP_t CP;
@@ -39,6 +43,10 @@ int LPR_to_htab(htab_t *h);
 void item_print(NP_t *i);
 void htab_print(htab_t *h);
 
+// Display functions
+void *display_func();
+pthread_t display_thread;
+
 /* SHARED MEMORY functions */
 int shared_mem_init_open(shm_CP_t *shm, const char *shm_key);
 
@@ -46,6 +54,14 @@ int shared_mem_init_open(shm_CP_t *shm, const char *shm_key);
 void *enterFunc(void *enter_num);
 
 int main()
+/*****************************************************************************
+ * @brief   Main program for manager.c
+ * @author  Shaq Kuba
+ * @date    01/11/2021
+ * @return  void
+ * @arg     void
+ * @note    
+ *****************************************************************************/
 {
     // opening shared memory
     const char* key;
@@ -56,12 +72,12 @@ int main()
     size_t buckets = 10;
     if (!htab_init(&h, buckets))
     {
-        printf("failed to initialise hash table\n");
+        if(DEBUG) {printf("failed to initialise hash table\n");}
         return EXIT_FAILURE;
     }
     // allocate plates to hash table
     LPR_to_htab(&h);
-    htab_print(&h); // debug print
+    if(DEBUG){htab_print(&h);} // debug print
 
 
     int num = 0;
@@ -69,16 +85,21 @@ int main()
     pthread_t enter; 
     pthread_create(&enter,NULL,enterFunc,(void *)&num);
 
+    pthread_create(&display_thread, NULL, (void *)display_func, NULL );
 
     pthread_join(enter, NULL);
 
 }
 
 
-// Functions
-
-
 void Assignment_Sleep(int time_in_milli_sec)
+/*****************************************************************************
+ * @brief   Sleeps for a given amount of milliseconds
+ * @author  Shaq Kuba
+ * @date    01/11/2021
+ * @return  void
+ * @arg     void
+ *****************************************************************************/
 {
     int time = time_in_milli_sec * 1000;
     usleep(time);
@@ -87,6 +108,14 @@ void Assignment_Sleep(int time_in_milli_sec)
 // -----------------------------------------------------Shared Memory Function--------------------------------------------------------------------------
 
 int shared_mem_init_open(shm_CP_t* shm, const char *shm_key)
+/*****************************************************************************
+ * @brief   Opens a shared memory location created by the simulator
+ * @author  Shaq Kuba
+ * @date    01/11/2021
+ * @return  int (EXIT_SUCCESS)
+ * @arg     shm_CP_t* shm: pointer struct containing all car park data
+ *          char* shm_key: key to map memory to
+ *****************************************************************************/
 {   
     // opening the shared data, otherwise producing an error
     if ((shm->fd = shm_open(shm_key, O_RDWR, 0)) < 0)
@@ -100,7 +129,7 @@ int shared_mem_init_open(shm_CP_t* shm, const char *shm_key)
         perror("mmap");
         return(EXIT_FAILURE);
     }
-    printf("shared memory opened!\n");
+    if(DEBUG) {printf("shared memory opened!\n");}
     return(EXIT_SUCCESS);
 }
 
@@ -108,15 +137,30 @@ int shared_mem_init_open(shm_CP_t* shm, const char *shm_key)
 
 // initialising has table
 bool htab_init(htab_t *h, size_t n)
+/*****************************************************************************
+ * @brief   Initializes a hash table struct of size n
+ * @author  Shaq Kuba
+ * @date    01/11/2021
+ * @return  bool:
+ *              - true if memory allocation completed successfully
+ *              - false if memory allocation failed
+ * @arg     htab_t *h: hash table to initialize
+ *          size_t n: size to initialize hash table
+ *****************************************************************************/
 {
     h->size = n;
     h->buckets = (NP_t **)calloc(n, sizeof(NP_t *));
     return h->buckets != 0;
 }
 
-// The Bernstein hash function.
-// A very fast hash function that works well in practice.
 size_t djb_hash(char *s)
+/*****************************************************************************
+ * @brief   The Bernstein hash function. A very fast hash function that works well in practice.
+ * @author  Shaq Kuba
+ * @date    01/11/2021
+ * @return  size_t: hash location
+ * @arg     char *s: hash character
+ *****************************************************************************/
 {
     size_t hash = 5381;
     int c = 0;
@@ -130,12 +174,27 @@ size_t djb_hash(char *s)
 
 // Calculate the offset for the bucket for key in hash table.
 size_t htab_index(htab_t *h, char *key)
+/*****************************************************************************
+ * @brief   Gets index of a key in a given hash table
+ * @author  Shaq Kuba
+ * @date    01/11/2021
+ * @return  size_t: location of key
+ * @arg     htab_t *h: hash table to initialize
+ *          char *key: key to look for
+ *****************************************************************************/
 {
     return djb_hash(key) % h->size;
 }
 
 // adding function for hash table
 bool htab_add(htab_t *h, char key[7])
+/*****************************************************************************
+ * @brief   Adds a number plate to given hash table
+ * @author  Shaq Kuba
+ * @date    01/11/2021
+ * @return  TODO
+ * @arg     TODO
+ *****************************************************************************/
 {
     // allocating space for a new number plate
     NP_t *newhead = (NP_t *)malloc(sizeof(NP_t));
@@ -157,12 +216,26 @@ bool htab_add(htab_t *h, char key[7])
 
 // Find pointer to head of list for key in hash table.
 NP_t *htab_bucket(htab_t *h, char *key)
+/*****************************************************************************
+ * @brief   TODO
+ * @author  Shaq Kuba
+ * @date    01/11/2021
+ * @return  TODO
+ * @arg     TODO
+ *****************************************************************************/
 {
     return h->buckets[htab_index(h, key)];
 }
 
 // item find
 NP_t *htab_find(htab_t *h, char *key)
+/*****************************************************************************
+ * @brief   TODO
+ * @author  Shaq Kuba
+ * @date    01/11/2021
+ * @return  TODO
+ * @arg     TODO
+ *****************************************************************************/
 {
     char buff[7];
     memcpy(buff,key, 6);
@@ -178,6 +251,13 @@ NP_t *htab_find(htab_t *h, char *key)
 }
 
 void htab_destroy(htab_t *h)
+/*****************************************************************************
+ * @brief   TODO
+ * @author  Shaq Kuba
+ * @date    01/11/2021
+ * @return  TODO
+ * @arg     TODO
+ *****************************************************************************/
 {
     // free linked lists
     for (size_t i = 0; i < h->size; ++i)
@@ -199,6 +279,13 @@ void htab_destroy(htab_t *h)
 
 // reading from file directly into a hash table
 int LPR_to_htab(htab_t *h)
+/*****************************************************************************
+ * @brief   TODO
+ * @author  Shaq Kuba
+ * @date    01/11/2021
+ * @return  TODO
+ * @arg     TODO
+ *****************************************************************************/
 {
     // initialising hast table
     // Reading the file
@@ -212,30 +299,44 @@ int LPR_to_htab(htab_t *h)
     // scanning for number plate
     while((fscanf(file, "%s", source)) != EOF)
     {
-        //printf("%s\n", source);
+        //if(DEBUG) {printf("%s\n", source);}
         if ((htab_add(h, source)) == false)
         {
             printf("error adding number plate to hash table");
         }
     }
-    printf("successfuly allocated number plates to hash table\n");
+    if(DEBUG) {printf("successfuly allocated number plates to hash table\n");}
     return 0;
 }
 
 void item_print(NP_t *i)
+/*****************************************************************************
+ * @brief   TODO
+ * @author  Shaq Kuba
+ * @date    01/11/2021
+ * @return  TODO
+ * @arg     TODO
+ *****************************************************************************/
 {
     printf("key=%s", i->number_plate);
 }
 
 void htab_print(htab_t *h)
+/*****************************************************************************
+ * @brief   TODO
+ * @author  Shaq Kuba
+ * @date    01/11/2021
+ * @return  TODO
+ * @arg     TODO
+ *****************************************************************************/
 {
-    printf("hash table with %ld buckets\n", h->size);
+    if(DEBUG) {printf("hash table with %ld buckets\n", h->size);}
     for (size_t i = 0; i < h->size; ++i)
     {
-        printf("bucket %ld: ", i);
+        if(DEBUG) {printf("bucket %ld: ", i);}
         if (h->buckets[i] == NULL)
         {
-            printf("empty\n");
+            if(DEBUG) {printf("empty\n");}
         }
         else
         {
@@ -252,8 +353,18 @@ void htab_print(htab_t *h)
     }
 }
 
+// -----------------------------------------------------Car and entrances/exits--------------------------------------------------------------------------
+
+
 // linked list function
 int addCar(int level, char *LPR)
+/*****************************************************************************
+ * @brief   TODO
+ * @author  Shaq Kuba
+ * @date    01/11/2021
+ * @return  TODO
+ * @arg     TODO
+ *****************************************************************************/
 {
     Car_t *newcar = (Car_t*)malloc(sizeof(Car_t));
     if(newcar == NULL)
@@ -283,9 +394,16 @@ int addCar(int level, char *LPR)
     return 0;
 }
 
-// Enternce routine
+// Enterance routine
 
 void *enterFunc(void *enter_num)
+/*****************************************************************************
+ * @brief   TODO
+ * @author  Shaq Kuba
+ * @date    01/11/2021
+ * @return  TODO
+ * @arg     TODO
+ *****************************************************************************/
 {
     // get the entrance we are looking at
     int num = *(int *)enter_num;
@@ -306,7 +424,7 @@ void *enterFunc(void *enter_num)
     {
         // checking if there is a number plate in LPR reading
         if(entrance->LPR_reading[0] != 0){
-            printf("car at the entrance\n");
+            if(DEBUG) {printf("car at the entrance\n");}
             // copying new LP to the temp variable
             memcpy(temp_LPR, entrance->LPR_reading, 6);
             level_num = -1;
@@ -322,14 +440,14 @@ void *enterFunc(void *enter_num)
                     {
                         level_num = i;
                         level_car_counter[i]++;
-                        printf("inserting a car to level %d\n", i); //debug
+                        if(DEBUG) {printf("inserting a car to level %d\n", i);}
                         break;
                     }
                 }
                 // check if carpark is full (should not happen but incase it does)
                 if(level_num == -1)
                 {
-                    printf("Carpark is full!\n");
+                    if(DEBUG) {printf("Carpark is full!\n");}
                     break;
                 }
                 // release level counter mutex 
@@ -337,34 +455,37 @@ void *enterFunc(void *enter_num)
 
 
                 // checking cars are going to the right level
-                printf("%s inserted into carpark at level %d\n", temp_LPR, level_num);
-                printf("number of cars in a each level: \n" );
-                for(int i = 0; i < NUM_LEVELS; i++)
+                if(DEBUG) 
                 {
-                    printf("Level %d: %d \n",i+1, level_car_counter[i]);
+                    printf("%s inserted into carpark at level %d\n", temp_LPR, level_num);
+                    printf("number of cars in a each level: \n" );
+                    for(int i = 0; i < NUM_LEVELS; i++)
+                    {
+                        printf("Level %d: %d \n",i+1, level_car_counter[i]);
+                    }
                 }
 
                 // set the value for the info sign
                 pthread_mutex_lock(&entrance->info_sign_mutex);
                 entrance->info_sign_status = '1' + level_num;
                 pthread_mutex_unlock(&entrance->info_sign_mutex);
-                printf("sign set to %c\n", entrance->info_sign_status);
+                if(DEBUG) {printf("sign set to %c\n", entrance->info_sign_status);}
 
                 /*-----------------RAISING BOOM GATE ----------------*/ 
 
                  // sending signal to open boom gate 
                 pthread_mutex_lock(&entrance->BOOM_mutex);
                 entrance->BOOM_status = 'R';
-                printf("Boom status is set to %c\n",entrance->BOOM_status);
+                if(DEBUG) {printf("Boom status is set to %c\n",entrance->BOOM_status);}
                 pthread_mutex_unlock(&entrance->BOOM_mutex);
                 // sending signal to simulator boom
-                printf("sending signal to BOOM GATE Simulator with raising\n");
+                if(DEBUG) {printf("sending signal to BOOM GATE Simulator with raising\n");}
                 pthread_cond_signal(&entrance->BOOM_cond);
-                printf("signal sent\n");
+                if(DEBUG) {printf("signal sent\n");}
                 // waiting then locking
-                printf("waiting for open gate signal\n");
+                if(DEBUG) {printf("waiting for open gate signal\n");}
                 pthread_cond_wait(&entrance->BOOM_cond, &entrance->BOOM_mutex); // unlocks and mutex and wait
-                printf("Boom status is set to %c\n",entrance->BOOM_status);
+                if(DEBUG) {printf("Boom status is set to %c\n",entrance->BOOM_status);}
                 pthread_mutex_unlock(&entrance->BOOM_mutex);
                 
                 /*-----------------storing car ----------------*/
@@ -389,16 +510,16 @@ void *enterFunc(void *enter_num)
                 /*-----------------LOWERING BOOM GATE ----------------*/ 
                 pthread_mutex_lock(&entrance->BOOM_mutex);
                 entrance->BOOM_status = 'L';
-                printf("Boom status is set to %c\n",entrance->BOOM_status);
+                if(DEBUG) {printf("Boom status is set to %c\n",entrance->BOOM_status);}
                 pthread_mutex_unlock(&entrance->BOOM_mutex);
                 // send a signal to simulator to lower the boom arm
-                printf("sending signal to BOOM GATE Simulator with raising\n");
+                if(DEBUG) {printf("sending signal to BOOM GATE Simulator with raising\n");}
                 pthread_cond_signal(&entrance->BOOM_cond);
-                printf("signal sent\n");
+                if(DEBUG) {printf("signal sent\n");}
                 // waiting then locking
-                printf("waiting for open gate signal\n");
+                if(DEBUG) {printf("waiting for open gate signal\n");}
                 pthread_cond_wait(&entrance->BOOM_cond, &entrance->BOOM_mutex); // unlocks and mutex and wait
-                printf("Boom status is set to %c\n",entrance->BOOM_status);
+                if(DEBUG) {printf("Boom status is set to %c\n",entrance->BOOM_status);}
                 pthread_mutex_unlock(&entrance->BOOM_mutex);
 
             }
@@ -408,7 +529,7 @@ void *enterFunc(void *enter_num)
                 pthread_mutex_lock(&entrance->info_sign_mutex);
                 entrance->info_sign_status = 'X';
                 pthread_mutex_unlock(&entrance->info_sign_mutex);
-                printf("sign set to %c\n", entrance->info_sign_status);
+                if(DEBUG) {printf("sign set to %c\n", entrance->info_sign_status);}
 
                 
                 // sending signal to level LPR
@@ -422,16 +543,23 @@ void *enterFunc(void *enter_num)
             pthread_cond_signal(&entrance->LPR_cond);
         }  
 
-        printf("waiting for a new car to be at the entrance\n");
+        if(DEBUG) {printf("waiting for a new car to be at the entrance\n");}
         pthread_cond_wait(&entrance->LPR_cond, &entrance->LPR_mutex);
 
     }  
     //unlocking all mutex
     pthread_mutex_unlock(&entrance->LPR_mutex);
-    return 0;  
+    return 0;
 }
 
 void *exitFunc(void *exit_num)
+/*****************************************************************************
+ * @brief   TODO
+ * @author  Shaq Kuba
+ * @date    01/11/2021
+ * @return  TODO
+ * @arg     TODO
+ *****************************************************************************/
 {
     // getting exit number
     int num = *(int *)exit_num;
@@ -449,8 +577,54 @@ void *exitFunc(void *exit_num)
     }
 }
 
+// -----------------------------------------------------Displaying info--------------------------------------------------------------------------
 
 
+void *display_func()
+{
+    if(DEBUG == false)
+    {
+
+        for(;;)
+        {
+            system("clear");
+            struct winsize w;
+            ioctl(0, TIOCGWINSZ, &w);
+            int width =  w.ws_col;
+            char *bar; 
+            bar = (char*)malloc ( width * sizeof (char));
+            for(int i = 0; i < width; i++)
+            {
+                bar[i] = '=';
+            }
+
+            // Display 
+
+            printf("%s\n", bar);
+            printf("Entrance license plates:\n");
+            
+            for(int e = 0; e < NUM_ENTERS; e++)
+            {
+                printf(" |%s|", CP.shm_ptr->Enter[e].LPR_reading);
+            }
+            printf("\n");
+            printf("Exit license plates:\n");
+            
+            for(int e = 0; e < NUM_EXITS; e++)
+            {
+                printf(" |%s|", CP.shm_ptr->Exit[e].LPR_reading);
+            }
+            printf("\n");
+            printf("\n");
+            printf("\n");
+            printf("%s\n", bar);
+            usleep(5000);
+        }
+    }
+    
+    
+    return 0;
+}
 
 
 
