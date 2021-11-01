@@ -329,7 +329,7 @@ void *enterFunc(void *enter_num)
                 // check if carpark is full (should not happen but incase it does)
                 if(level_num == -1)
                 {
-                    printf("Carpark is full idiot!\n");
+                    printf("Carpark is full!\n");
                     break;
                 }
                 // release level counter mutex 
