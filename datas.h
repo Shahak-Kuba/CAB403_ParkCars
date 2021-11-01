@@ -15,6 +15,11 @@
 #define QUEUE_LENGTH 10
 
 
+
+
+
+// ---------------------------------------shared memory --------------------------------------------------------
+
 // Struct for Entrance
 typedef struct Enter
 {
