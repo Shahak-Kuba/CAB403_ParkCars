@@ -118,6 +118,7 @@ int main()
 
     pthread_create(&input_thread, NULL, (void *)get_input, NULL);
 
+    pthread_create(&temperature_thread, NULL, (void *)generateTemperature, NULL);
     pthread_join(create_car_thread, NULL);
     return(EXIT_SUCCESS);
 }

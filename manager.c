@@ -601,24 +601,44 @@ void *display_func()
             // Display 
 
             printf("%s\n", bar);
-            printf("Entrance license plates:\n");
+            printf("\nEntrance license plates:\n");
             
             for(int e = 0; e < NUM_ENTERS; e++)
             {
-                printf(" |%s|", CP.shm_ptr->Enter[e].LPR_reading);
+                char * text = CP.shm_ptr->Enter[e].LPR_reading;
+                if(text[0] == 0)
+                {
+                    text = " None ";
+                }
+                printf(" ENT %d LPR: |%s|", e, text);
             }
-            printf("\n");
+            printf("\n\n");
             printf("Exit license plates:\n");
             
             for(int e = 0; e < NUM_EXITS; e++)
             {
-                printf(" |%s|", CP.shm_ptr->Exit[e].LPR_reading);
+                char * text = CP.shm_ptr->Exit[e].LPR_reading;
+                if(text[0] == 0)
+                {
+                    text = " None ";
+                }
+                printf(" EXT %d LPR: |%s|", e, text);
             }
+            printf("\n\n");
+            printf("Temperature sensors:\n");
+            
+            for(int l = 0; l < NUM_LEVELS; l++)
+            {
+                printf(" LVL %d TMP: |  %d  |", l, CP.shm_ptr->Level[l].temp_sensor);
+            }
+            
+
+
             printf("\n");
             printf("\n");
             printf("\n");
             printf("%s\n", bar);
-            usleep(5000);
+            usleep(50000);
         }
     }
     
